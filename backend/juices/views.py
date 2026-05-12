@@ -1,0 +1,610 @@
+from rest_framework import viewsets, status, permissions
+from rest_framework.response import Response
+from rest_framework.decorators import action, api_view, permission_classes
+from django.utils import timezone
+from django.db.models import Q
+from django.contrib.auth import get_user_model
+from .models import Fruit, Recipe, Order, Notification, GiftVoucher, Reward, Vendor, Product
+from .serializers import (
+    FruitSerializer, RecipeSerializer, OrderSerializer,
+    UserSerializer, NotificationSerializer, GiftVoucherSerializer, RewardSerializer,
+    VendorSerializer, ProductSerializer, OTPSendSerializer, OTPVerifySerializer
+)
+from .models import OTP
+from .services import send_email_otp, send_sms_otp, generate_otp
+import random
+import string
+import razorpay
+import hmac
+import hashlib
+from django.contrib.auth.hashers import make_password, check_password
+from rest_framework_simplejwt.tokens import RefreshToken
+
+User = get_user_model()
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class FruitViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Fruit.objects.all()
+    serializer_class = FruitSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class RecipeViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Recipe.objects.all()
+    serializer_class = RecipeSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all().order_by('-created_at')
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def perform_create(self, serializer):
+        order = serializer.save(
+            user=self.request.user if self.request.user.is_authenticated else None
+        )
+        # Auto-create a notification for the new order
+        Notification.objects.create(
+            order=order,
+            title='Order Placed! 🎉',
+            message=f'Your order #{order.id} ({order.juice_name}) has been placed successfully.',
+            notification_type='order_update',
+        )
+
+    @action(detail=True, methods=['post'], url_path='advance')
+    def advance_status(self, request, pk=None):
+        """Move order to the next tracking step."""
+        order = self.get_object()
+        steps = ['Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered']
+        messages = [
+            'Your order has been placed! 🎉',
+            'Your order has been confirmed by our team! ✅',
+            'Our team is preparing your fresh juice! 🍊',
+            'Your juice is on its way! 🛵',
+            'Your order has been delivered. Enjoy! 🥤',
+        ]
+        if order.tracking_step < 4:
+            order.tracking_step += 1
+            order.status = steps[order.tracking_step]
+            order.save()
+            Notification.objects.create(
+                order=order,
+                title=f'Order #{order.id} — {order.status}',
+                message=messages[order.tracking_step],
+                notification_type='order_update',
+            )
+        return Response(OrderSerializer(order).data)
+
+    @action(detail=False, methods=['post'], url_path='create-payment-order')
+    def create_payment_order(self, request):
+        amount = int(float(request.data.get('amount', 0)) * 100) # In paise
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        
+        try:
+            payment_order = client.order.create({
+                'amount': amount,
+                'currency': 'INR',
+                'payment_capture': 1
+            })
+            return Response(payment_order)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='verify-payment')
+    def verify_payment(self, request):
+        data = request.data
+        razorpay_order_id = data.get('razorpay_order_id')
+        razorpay_payment_id = data.get('razorpay_payment_id')
+        razorpay_signature = data.get('razorpay_signature')
+        order_id = data.get('order_id')
+
+        params_dict = {
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
+        }
+        
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        
+        try:
+            client.utility.verify_payment_signature(params_dict)
+            
+            # Payment is valid, update order and create payment record
+            from .models import Payment
+            order = Order.objects.get(id=order_id)
+            Payment.objects.update_or_create(
+                order=order,
+                defaults={
+                    'razorpay_order_id': razorpay_order_id,
+                    'razorpay_payment_id': razorpay_payment_id,
+                    'razorpay_signature': razorpay_signature,
+                    'amount': order.total_price,
+                    'status': 'Success'
+                }
+            )
+            order.status = 'Confirmed'
+            order.save()
+            
+            return Response({'status': 'Payment Verified', 'order_status': 'Confirmed'})
+        except Exception as e:
+            return Response({'error': f'Payment Verification Failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'], url_path='cancel')
+    def cancel_order(self, request, pk=None):
+        """Cancel an order if it hasn't been prepared yet."""
+        order = self.get_object()
+        if order.tracking_step >= 2: # Preparing or further
+            return Response(
+                {"error": "Order cannot be cancelled as it is already being prepared or delivered."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        order.status = 'Cancelled'
+        order.save()
+        
+        Notification.objects.create(
+            order=order,
+            title=f'Order #{order.id} Cancelled 🛑',
+            message=f'Your order for {order.juice_name} has been cancelled successfully.',
+            notification_type='order_update',
+        )
+        return Response(OrderSerializer(order).data)
+
+    @action(detail=True, methods=['get'], url_path='track')
+    def track(self, request, pk=None):
+        """Return tracking info for an order."""
+        order = self.get_object()
+        steps = ['Order Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered']
+        timeline = [
+            {
+                'step': i,
+                'label': label,
+                'is_complete': i < order.tracking_step,
+                'is_current': i == order.tracking_step,
+            }
+            for i, label in enumerate(steps)
+        ]
+        return Response({
+            'order_id': order.id,
+            'juice_name': order.juice_name,
+            'status': order.status,
+            'tracking_step': order.tracking_step,
+            'timeline': timeline,
+            'delivery_address': order.delivery_address,
+            'payment_method': order.payment_method,
+            'total_price': str(order.total_price),
+            'created_at': order.created_at,
+        })
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = Notification.objects.all().order_by('-created_at')
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.AllowAny]
+
+    @action(detail=False, methods=['post'], url_path='mark-all-read')
+    def mark_all_read(self, request):
+        Notification.objects.filter(is_read=False).update(is_read=True)
+        return Response({'status': 'all marked read'})
+
+    @action(detail=True, methods=['post'], url_path='read')
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response(NotificationSerializer(notification).data)
+
+
+class GiftVoucherViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = GiftVoucher.objects.filter(is_active=True).order_by('expiry_date')
+    serializer_class = GiftVoucherSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class RewardViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Reward.objects.all()
+    serializer_class = RewardSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+# ── Vendor Endpoints ──────────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def vendor_register(request):
+    data = request.data
+    try:
+        user = User.objects.create_user(
+            username=data['username'],
+            password=data['password'],
+            email=data.get('email', ''),
+            is_vendor=True
+        )
+        Vendor.objects.create(
+            user=user,
+            shop_name=data['shop_name'],
+            address=data.get('address', '')
+        )
+        return Response({'message': 'Vendor registered successfully. Waiting for admin approval.'}, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class VendorViewSet(viewsets.ModelViewSet):
+    serializer_class = VendorSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            return Vendor.objects.all()
+        return Vendor.objects.filter(user=self.request.user)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def approve(self, request, pk=None):
+        vendor = self.get_object()
+        vendor.is_approved = True
+        vendor.save()
+        return Response({'status': 'Vendor approved'})
+
+    @action(detail=False, methods=['get'], url_path='analytics')
+    def analytics(self, request):
+        if not hasattr(request.user, 'vendor_profile'):
+            return Response({'error': 'Not a vendor'}, status=403)
+        
+        vendor = request.user.vendor_profile
+        orders = Order.objects.filter(vendor=vendor)
+        products = Product.objects.filter(vendor=vendor)
+        
+        revenue = sum(float(o.total_price) for o in orders if o.status == 'Delivered')
+        
+        return Response({
+            'total_orders': orders.count(),
+            'total_revenue': revenue,
+            'active_products': products.filter(is_available=True).count(),
+            'pending_orders': orders.filter(status='Placed').count(),
+            'recent_orders': OrderSerializer(orders.order_by('-created_at')[:5], many=True).data
+        })
+
+from rest_framework.exceptions import ValidationError
+
+class VendorProductViewSet(viewsets.ModelViewSet):
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if hasattr(self.request.user, 'vendor_profile'):
+            return Product.objects.filter(vendor=self.request.user.vendor_profile)
+        return Product.objects.none()
+
+    def perform_create(self, serializer):
+        if not hasattr(self.request.user, 'vendor_profile'):
+            raise ValidationError("User is not a vendor.")
+        if not self.request.user.vendor_profile.is_approved:
+            raise ValidationError("Vendor is not approved yet.")
+        serializer.save(vendor=self.request.user.vendor_profile)
+
+class VendorOrderViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if hasattr(self.request.user, 'vendor_profile'):
+            return Order.objects.filter(vendor=self.request.user.vendor_profile).order_by('-created_at')
+        return Order.objects.none()
+
+    @action(detail=True, methods=['post'])
+    def update_status(self, request, pk=None):
+        order = self.get_object()
+        new_status = request.data.get('status')
+        if new_status in dict(Order.STATUS_CHOICES):
+            order.status = new_status
+            # Update tracking step based on status
+            status_to_step = {
+                'Placed': 0, 'Confirmed': 1, 'Preparing': 2, 
+                'Out for Delivery': 3, 'Delivered': 4
+            }
+            if new_status in status_to_step:
+                order.tracking_step = status_to_step[new_status]
+            order.save()
+            
+            Notification.objects.create(
+                order=order,
+                title=f"Order Update: {new_status}",
+                message=f"Your order #{order.id} is now {new_status}.",
+                notification_type='order_update'
+            )
+            return Response({'status': 'Order status updated'})
+        return Response({'error': 'Invalid status'}, status=400)
+
+# ── Standalone endpoints ──────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def calculate_juice(request):
+    selection = request.data
+    items = selection.get('items', [])
+    size = selection.get('size', 'Medium')
+    add_ins = selection.get('add_ins', [])
+
+    total_percentage = sum(item.get('percentage', 0) for item in items)
+    if total_percentage != 100:
+        return Response(
+            {"error": "Total percentage must be exactly 100%"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    total_price = 0
+    total_calories = 0
+    size_multipliers = {'Small': 2.5, 'Medium': 3.5, 'Large': 5.0}
+    multiplier = size_multipliers.get(size, 3.5)
+
+    for item in items:
+        fruit_id = item.get('fruit_id')
+        percentage = item.get('percentage', 0)
+        try:
+            fruit = Fruit.objects.get(id=fruit_id)
+            total_price += (float(fruit.price_per_100ml) * (percentage / 100.0)) * multiplier
+            total_calories += (fruit.calories_per_100ml * (percentage / 100.0)) * multiplier
+        except Fruit.DoesNotExist:
+            return Response(
+                {"error": f"Fruit with ID {fruit_id} not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    total_price += len(add_ins) * 10.0
+    return Response({
+        "total_price": round(total_price, 2),
+        "total_calories": int(total_calories),
+        "valid": True,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def apply_voucher(request):
+    code = request.data.get('code', '').strip().upper()
+    order_total = float(request.data.get('order_total', 0))
+
+    try:
+        voucher = GiftVoucher.objects.get(code=code, is_active=True)
+    except GiftVoucher.DoesNotExist:
+        return Response({"error": "Invalid or expired voucher code."}, status=status.HTTP_404_NOT_FOUND)
+
+    if voucher.expiry_date < timezone.now().date():
+        return Response({"error": "This voucher has expired."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if voucher.times_used >= voucher.usage_limit:
+        return Response({"error": "Voucher usage limit reached."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if order_total < float(voucher.min_order):
+        return Response(
+            {"error": f"Minimum order amount is ₹{voucher.min_order} for this voucher."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if voucher.discount_type == 'percentage':
+        discount_amount = round(order_total * float(voucher.discount_value) / 100, 2)
+    else:
+        discount_amount = float(voucher.discount_value)
+
+    voucher.times_used += 1
+    voucher.save()
+
+    return Response({
+        "valid": True,
+        "code": voucher.code,
+        "discount_type": voucher.discount_type,
+        "discount_value": float(voucher.discount_value),
+        "discount_amount": discount_amount,
+        "final_total": round(order_total - discount_amount, 2),
+        "message": f"Voucher applied! You saved ₹{discount_amount}",
+    })
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def rewards_summary(request):
+    """Return the guest reward record (or create it)."""
+    reward, _ = Reward.objects.get_or_create(user_session='guest')
+
+    # Auto-compute level
+    if reward.points >= 1000:
+        reward.level = 'Platinum'
+    elif reward.points >= 500:
+        reward.level = 'Gold'
+    elif reward.points >= 250:
+        reward.level = 'Silver'
+    else:
+        reward.level = 'Bronze'
+    reward.save()
+
+    return Response(RewardSerializer(reward).data)
+    
+# ── OTP Authentication Views ──────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def send_otp(request):
+    serializer = OTPSendSerializer(data=request.data)
+    if serializer.is_valid():
+        identifier = serializer.validated_data['identifier']
+        target_identifier = identifier
+        method = 'email' if '@' in identifier else 'phone'
+        
+        # Priority Logic: If user provides email, check if they have a phone number registered
+        if method == 'email':
+            user = User.objects.filter(email__iexact=identifier).first()
+            if user and user.phone_number:
+                target_identifier = user.phone_number
+                method = 'phone'
+        
+        # Rate Limiting: Check if an OTP was sent recently (within 60 seconds)
+        last_otp = OTP.objects.filter(identifier=identifier).order_by('-created_at').first()
+        if last_otp and (timezone.now() - last_otp.created_at).total_seconds() < 60:
+            return Response({"error": "Please wait 60 seconds before requesting a new OTP."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        otp = generate_otp()
+        hashed_otp = make_password(otp)
+        
+        # Save OTP to DB
+        OTP.objects.filter(identifier=identifier).delete()
+        OTP.objects.create(identifier=identifier, otp_code=hashed_otp)
+        
+        success = False
+        if method == 'email':
+            success = send_email_otp(target_identifier, otp)
+        else:
+            success = send_sms_otp(target_identifier, otp)
+            
+        if success:
+            return Response({
+                "message": f"OTP sent to your registered {method}",
+                "method": method,
+                "target": target_identifier if method == 'email' else f"******{target_identifier[-4:]}"
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Failed to send OTP. Please try again."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def verify_otp(request):
+    serializer = OTPVerifySerializer(data=request.data)
+    if serializer.is_valid():
+        identifier = serializer.validated_data['identifier']
+        otp_code = serializer.validated_data['otp_code']
+        
+        try:
+            otp_record = OTP.objects.get(identifier=identifier, is_verified=False)
+        except OTP.DoesNotExist:
+            return Response({"error": "Invalid or expired OTP request."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if otp_record.is_expired():
+            otp_record.delete()
+            return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if otp_record.attempts >= 3:
+            otp_record.delete()
+            return Response({"error": "Max attempts reached. Please request a new OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not check_password(otp_code, otp_record.otp_code):
+            otp_record.attempts += 1
+            otp_record.save()
+            return Response({"error": "Invalid OTP code."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # OTP is valid
+        otp_record.is_verified = True
+        otp_record.save()
+        
+        # Login or Register User
+        user = None
+        if '@' in identifier:
+            user = User.objects.filter(Q(email__iexact=identifier) | Q(username__iexact=identifier)).first()
+            if not user:
+                username = identifier.split('@')[0] + str(random.randint(1000, 9999))
+                user = User.objects.create_user(username=username, email=identifier)
+        else:
+            user = User.objects.filter(Q(phone_number=identifier) | Q(username=identifier)).first()
+            if not user:
+                username = "user_" + identifier[-4:] + str(random.randint(1000, 9999))
+                user = User.objects.create_user(username=username, phone_number=identifier)
+        
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': {
+                'username': user.username,
+                'email': user.email,
+                'phone_number': user.phone_number,
+                'is_vendor': user.is_vendor
+            }
+        }, status=status.HTTP_200_OK)
+        
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def verify_registration(request):
+    data = request.data
+    email = data.get('email')
+    phone = data.get('phone_number')
+    otp_code = data.get('otp_code')
+    
+    # Prioritize phone for verification if both provided
+    identifier = phone if phone and data.get('verified_with') == 'phone' else email
+    if not identifier:
+        identifier = phone or email
+    
+    if not identifier or not otp_code:
+        return Response({"error": "Identifier and OTP code are required."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        otp_record = OTP.objects.get(identifier=identifier, is_verified=False)
+    except OTP.DoesNotExist:
+        return Response({"error": "Invalid or expired OTP request."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if otp_record.is_expired():
+        otp_record.delete()
+        return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not check_password(otp_code, otp_record.otp_code):
+        otp_record.attempts += 1
+        otp_record.save()
+        if otp_record.attempts >= 3:
+            otp_record.delete()
+            return Response({"error": "Max attempts reached. Please request a new OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Invalid OTP code."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # OTP is valid
+    otp_record.is_verified = True
+    otp_record.save()
+    
+    # Create User
+    is_vendor = data.get('is_vendor', False)
+    try:
+        user = User.objects.create_user(
+            username=data['username'],
+            password=data['password'],
+            email=data.get('email', ''),
+            phone_number=data.get('phone_number', ''),
+            is_vendor=is_vendor
+        )
+        
+        if is_vendor:
+            if not data.get('agreed_to_terms'):
+                return Response({'error': 'You must agree to the Vendor Marketplace Terms & Conditions.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            Vendor.objects.create(
+                user=user,
+                shop_name=data.get('shop_name', 'My Shop'),
+                owner_name=data.get('owner_name', 'Owner'),
+                phone=data.get('phone_number', ''),
+                email=data.get('email', ''),
+                address=data.get('address', ''),
+                gst_number=data.get('gst_number', ''),
+                fssai_license=data.get('fssai_license', ''),
+                agreed_to_terms=True
+            )
+            return Response({'message': 'Vendor registered successfully. Waiting for admin approval.'}, status=status.HTTP_201_CREATED)
+        
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': {
+                'username': user.username,
+                'email': user.email,
+                'phone_number': user.phone_number,
+                'is_vendor': user.is_vendor
+            }
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
