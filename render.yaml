@@ -19,12 +19,12 @@ services:
       - key: ALLOWED_HOSTS
         value: ".onrender.com"
 
-  # Frontend Service (Static Site)
-  - type: static
+  # Frontend Service (Web Service)
+  - type: web
     name: juicejunction-frontend
-    env: static
+    env: node
     buildCommand: "cd frontend && npm install && npm run build"
-    staticPublishDir: "frontend/dist"
+    startCommand: "cd frontend && npx serve -s dist"
     envVars:
       - key: VITE_API_URL
         fromService:
