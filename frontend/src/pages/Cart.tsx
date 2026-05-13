@@ -306,7 +306,7 @@ const Cart: React.FC = () => {
                             }
                           }}
                           maxLength={10}
-                          placeholder="7039582098" 
+                          placeholder="Enter 10-digit number" 
                           className="w-full px-4 py-3.5 md:py-3 bg-transparent focus:outline-none transition-colors text-sm"
                         />
                       </div>

@@ -178,7 +178,7 @@ const Auth: React.FC = () => {
                     <input
                       type="text"
                       required
-                      placeholder="7039582098"
+                      placeholder="Enter 10-digit number"
                       maxLength={10}
                       className="w-full px-3 py-3 bg-transparent outline-none font-medium"
                       value={phoneNumber}

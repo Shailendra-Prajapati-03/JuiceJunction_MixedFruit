@@ -160,7 +160,7 @@ const VendorRegister: React.FC = () => {
                 type="text"
                 name="phone_number"
                 required
-                placeholder="7039582098"
+                placeholder="Enter 10-digit number"
                 maxLength={10}
                 value={formData.phone_number}
                 onChange={(e) => {
