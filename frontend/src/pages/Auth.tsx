@@ -39,15 +39,17 @@ const Auth: React.FC = () => {
     setLoading(true);
 
     try {
-      // Prioritize phone for registration OTP if provided
-      const identifier = (!isLogin && phoneNumber) ? phoneNumber : (verifyWith === 'email' ? email : phoneNumber);
-      const res = await api.post('/auth/send-otp/', { email: identifier });
+      // For login mode, the email might be in the 'username' field
+      let targetEmail = email;
+      if (isLogin && username) targetEmail = username;
+      else if (!isLogin && email) targetEmail = email;
+      
+      const res = await api.post('/auth/send-otp/', { email: targetEmail });
       setOtpSent(true);
-      setTimer(60); // 1 minute timer
-      setVerifyWith(res.data.method); // Sync with backend's choice
+      setTimer(60); 
       setMessage(res.data.message);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to send OTP');
+      setError(err.response?.data?.message || err.response?.data?.error || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
@@ -83,29 +85,44 @@ const Auth: React.FC = () => {
     }
   };
 
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const targetEmail = isLogin ? username : email;
+      const res = await api.post('/auth/verify-otp/', {
+        email: targetEmail,
+        otp_code: otpCode
+      });
+      login(res.data.access, res.data.user);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLogin && otpSent) {
+    
+    // OTP Flow for Login or Register
+    if (otpSent) {
+      if (isLogin) return handleVerifyOtp(e);
       return handleVerifyRegister(e);
     }
-    if (!isLogin && !otpSent) {
-      return handleRegisterSubmit(e);
-    }
+    
+    // If user clicked "Sign In" but we want to use OTP, they need to trigger OTP first.
+    // However, the standard button in Login mode is "Sign In" (password-based).
+    // I'll add a separate button for OTP Login.
     
     setError('');
     setLoading(true);
     try {
-      const res = await api.post('/login/', { username, password }); // Backend handles email/phone lookup now
+      const res = await api.post('/login/', { username, password });
       login(res.data.access, res.data.user);
-      const searchParams = new URLSearchParams(window.location.search);
-      const redirectPath = searchParams.get('redirect') || '/';
-      const buyNowData = searchParams.get('buyNow');
-      
-      if (buyNowData) {
-        navigate(redirectPath, { state: { step: 'checkout', buyNowItem: JSON.parse(decodeURIComponent(buyNowData)) } });
-      } else {
-        navigate(redirectPath);
-      }
+      navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed');
     } finally {
@@ -231,7 +248,7 @@ const Auth: React.FC = () => {
               </button>
             </div>
 
-            {!isLogin && otpSent && (
+            {otpSent && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                 <div>
                   <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Enter 6-Digit OTP</label>
@@ -263,8 +280,20 @@ const Auth: React.FC = () => {
             disabled={loading}
             className="w-full bg-primary-500 text-white font-black py-4 rounded-xl shadow-lg shadow-primary-500/30 hover:bg-primary-600 transition-all active:scale-95 disabled:opacity-50"
           >
-            {loading ? 'Processing...' : (isLogin ? 'Sign In' : (otpSent ? 'Verify & Create Account' : 'Send Verification OTP'))}
+            {loading ? 'Processing...' : (isLogin ? (otpSent ? 'Verify & Sign In' : 'Sign In') : (otpSent ? 'Verify & Create Account' : 'Send Verification OTP'))}
           </button>
+
+          {isLogin && !otpSent && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleRegisterSubmit}
+                className="text-sm font-bold text-primary-500 hover:text-primary-600 transition-colors"
+              >
+                Sign in with OTP instead
+              </button>
+            </div>
+          )}
 
           <div className="text-center">
             <button
