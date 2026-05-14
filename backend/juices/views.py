@@ -479,10 +479,15 @@ def send_otp(request):
         else:
             return Response({
                 "success": False, 
-                "message": "Failed to send email. Please check your configuration."
+                "message": "Failed to send email. Please check your configuration on Render."
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        # Return the first validation error as a simple message
+        error_msg = list(serializer.errors.values())[0][0] if serializer.errors else "Invalid data"
+        return Response({
+            "success": False,
+            "message": error_msg
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -560,7 +565,13 @@ def verify_otp(request):
             }
         }, status=status.HTTP_200_OK)
         
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        # Return the first validation error as a simple message
+        error_msg = list(serializer.errors.values())[0][0] if serializer.errors else "Invalid data"
+        return Response({
+            "success": False,
+            "message": error_msg
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])

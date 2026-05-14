@@ -119,7 +119,10 @@ class OTPSendSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
     def validate_email(self, value):
-        return value.lower()
+        email = value.lower()
+        if not email.endswith('@gmail.com'):
+            raise serializers.ValidationError("Only @gmail.com addresses are supported.")
+        return email
 
 class OTPVerifySerializer(serializers.Serializer):
     email = serializers.EmailField()
