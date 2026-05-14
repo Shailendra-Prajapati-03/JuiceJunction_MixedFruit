@@ -497,7 +497,7 @@ def send_otp(request):
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
         # OTP Generation
-        debug_mode = os.getenv('OTP_DEBUG_MODE', 'False') == 'True'
+        debug_mode = os.getenv('OTP_DEBUG_MODE', 'False').strip().upper() == 'TRUE'
         otp = "123456" if debug_mode else generate_otp()
         
         hashed_otp = make_password(otp)
