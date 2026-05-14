@@ -41,7 +41,7 @@ const Auth: React.FC = () => {
     try {
       // Prioritize phone for registration OTP if provided
       const identifier = (!isLogin && phoneNumber) ? phoneNumber : (verifyWith === 'email' ? email : phoneNumber);
-      const res = await api.post('/send-otp/', { identifier });
+      const res = await api.post('/auth/send-otp/', { identifier });
       setOtpSent(true);
       setTimer(60); // 1 minute timer
       setVerifyWith(res.data.method); // Sync with backend's choice
