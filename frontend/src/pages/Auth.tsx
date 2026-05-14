@@ -107,16 +107,18 @@ const Auth: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // OTP Flow for Login or Register
+    // If OTP is already sent, handle verification
     if (otpSent) {
       if (isLogin) return handleVerifyOtp(e);
       return handleVerifyRegister(e);
     }
     
-    // If user clicked "Sign In" but we want to use OTP, they need to trigger OTP first.
-    // However, the standard button in Login mode is "Sign In" (password-based).
-    // I'll add a separate button for OTP Login.
+    // If we are in Register mode and OTP is NOT sent yet, send OTP
+    if (!isLogin) {
+      return handleRegisterSubmit(e);
+    }
     
+    // Standard Password Login Flow
     setError('');
     setLoading(true);
     try {
