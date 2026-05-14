@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     UserViewSet, FruitViewSet, RecipeViewSet, OrderViewSet,
-    NotificationViewSet, GiftVoucherViewSet, RewardViewSet,
+    NotificationViewSet, GiftVoucherViewSet, RewardViewSet, CartViewSet,
     calculate_juice, apply_voucher, rewards_summary,
     vendor_register, VendorProductViewSet, VendorOrderViewSet, VendorViewSet,
     send_otp, verify_otp, verify_registration, resend_otp,
@@ -17,6 +17,7 @@ router.register(r'users', UserViewSet)
 router.register(r'notifications', NotificationViewSet)
 router.register(r'vouchers', GiftVoucherViewSet)
 router.register(r'rewards', RewardViewSet)
+router.register(r'cart', CartViewSet, basename='cart')
 router.register(r'vendor/products', VendorProductViewSet, basename='vendor-product')
 router.register(r'vendor/orders', VendorOrderViewSet, basename='vendor-order')
 router.register(r'vendors', VendorViewSet, basename='vendor')

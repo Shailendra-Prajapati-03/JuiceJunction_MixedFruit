@@ -14,8 +14,19 @@ import CookieConsent from './CookieConsent';
 
 const Layout: React.FC = () => {
   const location = useLocation();
-  const { cart, isAuthenticated, user, logout } = useStore();
+  const { 
+    cart, isAuthenticated, user, logout, 
+    fetchNotifications, fetchRewards, loadCartFromBackend 
+  } = useStore();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+      fetchRewards();
+      loadCartFromBackend();
+    }
+  }, [isAuthenticated]);
 
   const navItems = [
     { name: 'Home',    path: '/',        icon: HomeIcon    },

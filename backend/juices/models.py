@@ -144,6 +144,7 @@ class Notification(models.Model):
         ('promo', 'Promo'),
     ]
 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications', null=True, blank=True)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
     title = models.CharField(max_length=200)
     message = models.TextField()
@@ -186,7 +187,8 @@ class Reward(models.Model):
         ('Platinum', 'Platinum'),
     ]
 
-    user_session = models.CharField(max_length=100, default='guest', help_text="session key or user id")
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reward_profile', null=True, blank=True)
+    user_session = models.CharField(max_length=100, default='guest', help_text="session key for guests")
     points = models.IntegerField(default=0)
     level = models.CharField(max_length=10, choices=LEVEL_CHOICES, default='Bronze')
     updated_at = models.DateTimeField(auto_now=True)
@@ -205,3 +207,13 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment for Order #{self.order.id} — {self.status}"
+
+class CartItem(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='cart_items', null=True, blank=True)
+    product_id = models.IntegerField(null=True, blank=True) # For pre-defined products
+    custom_juice_data = models.JSONField(null=True, blank=True) # For custom 3D builds
+    quantity = models.IntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Cart Item for {self.user.username if self.user else 'Guest'}"

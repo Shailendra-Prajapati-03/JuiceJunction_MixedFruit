@@ -65,17 +65,17 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = (
-            'id', 'juice_name', 'items', 'total_price', 'status',
+            'id', 'user', 'juice_name', 'items', 'total_price', 'status',
             'tracking_step', 'delivery_address', 'payment_method', 'created_at'
         )
-        read_only_fields = ('created_at', 'tracking_step')
+        read_only_fields = ('user', 'created_at', 'tracking_step')
 
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ('id', 'order', 'title', 'message', 'notification_type', 'is_read', 'created_at')
-        read_only_fields = ('created_at',)
+        fields = ('id', 'user', 'order', 'title', 'message', 'notification_type', 'is_read', 'created_at')
+        read_only_fields = ('user', 'created_at',)
 
 
 class GiftVoucherSerializer(serializers.ModelSerializer):
@@ -93,7 +93,8 @@ class RewardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Reward
-        fields = ('id', 'user_session', 'points', 'level', 'points_to_next', 'next_reward_label', 'updated_at')
+        fields = ('id', 'user', 'user_session', 'points', 'level', 'points_to_next', 'next_reward_label', 'updated_at')
+        read_only_fields = ('user', 'updated_at')
 
     def get_points_to_next(self, obj):
         tiers = [100, 250, 500, 1000]
@@ -112,6 +113,15 @@ class RewardSerializer(serializers.ModelSerializer):
         elif obj.points < 1000:
             return 'Gold membership'
         return 'All rewards unlocked!'
+
+
+from .models import CartItem
+
+class CartItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ('id', 'user', 'product_id', 'custom_juice_data', 'quantity', 'created_at')
+        read_only_fields = ('user', 'created_at')
 
 from .models import OTPVerification
 

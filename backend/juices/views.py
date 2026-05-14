@@ -8,11 +8,12 @@ from .models import Fruit, Recipe, Order, Notification, GiftVoucher, Reward, Ven
 from .serializers import (
     FruitSerializer, RecipeSerializer, OrderSerializer,
     UserSerializer, NotificationSerializer, GiftVoucherSerializer, RewardSerializer,
-    VendorSerializer, ProductSerializer, OTPSendSerializer, OTPVerifySerializer
+    VendorSerializer, ProductSerializer, OTPSendSerializer, OTPVerifySerializer,
+    CartItemSerializer
 )
 from django.contrib.auth.hashers import make_password, check_password
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import OTPVerification
+from .models import OTPVerification, CartItem
 from .utils import generate_otp, send_otp_email
 from datetime import timedelta
 import razorpay
@@ -43,9 +44,11 @@ class RecipeViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all().order_by('-created_at')
     serializer_class = OrderSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user).order_by('-created_at')
 
     def perform_create(self, serializer):
         order = serializer.save(
@@ -53,6 +56,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         )
         # Auto-create a notification for the new order
         Notification.objects.create(
+            user=order.user,
             order=order,
             title='Order Placed! 🎉',
             message=f'Your order #{order.id} ({order.juice_name}) has been placed successfully.',
@@ -76,6 +80,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.status = steps[order.tracking_step]
             order.save()
             Notification.objects.create(
+                user=order.user,
                 order=order,
                 title=f'Order #{order.id} — {order.status}',
                 message=messages[order.tracking_step],
@@ -151,6 +156,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.save()
         
         Notification.objects.create(
+            user=order.user,
             order=order,
             title=f'Order #{order.id} Cancelled 🛑',
             message=f'Your order for {order.juice_name} has been cancelled successfully.',
@@ -186,13 +192,18 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
-    queryset = Notification.objects.all().order_by('-created_at')
     serializer_class = NotificationSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
     @action(detail=False, methods=['post'], url_path='mark-all-read')
     def mark_all_read(self, request):
-        Notification.objects.filter(is_read=False).update(is_read=True)
+        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
         return Response({'status': 'all marked read'})
 
     @action(detail=True, methods=['post'], url_path='read')
@@ -210,10 +221,38 @@ class GiftVoucherViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RewardViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Reward.objects.all()
     serializer_class = RewardSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        return Reward.objects.filter(user=self.request.user)
+
+
+class CartViewSet(viewsets.ModelViewSet):
+    serializer_class = CartItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return CartItem.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    
+    @action(detail=False, methods=['post'], url_path='sync')
+    def sync_cart(self, request):
+        """Sync local cart items to the database."""
+        items_data = request.data.get('items', [])
+        # Clear existing cart and replace with new items
+        CartItem.objects.filter(user=request.user).delete()
+        
+        for item in items_data:
+            CartItem.objects.create(
+                user=request.user,
+                product_id=item.get('product_id'),
+                custom_juice_data=item.get('custom_juice_data'),
+                quantity=item.get('quantity', 1)
+            )
+        return Response({'status': 'cart synced'})
 
 # ── Vendor Endpoints ──────────────────────────────────────────────────────────
 
@@ -315,6 +354,7 @@ class VendorOrderViewSet(viewsets.ReadOnlyModelViewSet):
             order.save()
             
             Notification.objects.create(
+                user=order.user,
                 order=order,
                 title=f"Order Update: {new_status}",
                 message=f"Your order #{order.id} is now {new_status}.",
@@ -409,10 +449,10 @@ def apply_voucher(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.AllowAny])
+@permission_classes([permissions.IsAuthenticated])
 def rewards_summary(request):
-    """Return the guest reward record (or create it)."""
-    reward, _ = Reward.objects.get_or_create(user_session='guest')
+    """Return the user's reward record."""
+    reward, _ = Reward.objects.get_or_create(user=request.user)
 
     # Auto-compute level
     if reward.points >= 1000:

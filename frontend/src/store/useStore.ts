@@ -71,33 +71,54 @@ interface AppState {
   // UI State
   isAIChatOpen: boolean;
   setAIChatOpen: (open: boolean) => void;
+
+  // Sync Actions
+  fetchNotifications: () => Promise<void>;
+  fetchRewards: () => Promise<void>;
+  syncCartWithBackend: () => Promise<void>;
+  loadCartFromBackend: () => Promise<void>;
 }
+
+import api from '../utils/api';
 
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       // ── Cart ───────────────────────────────────────────────────────────────
       cart: [],
-      addToCart: (juice) => set((state) => {
-        const existing = state.cart.find(item => item.id === juice.id);
-        if (existing) {
-          return {
-            cart: state.cart.map(item =>
+      addToCart: (juice) => {
+        set((state) => {
+          const existing = state.cart.find(item => item.id === juice.id);
+          let newCart;
+          if (existing) {
+            newCart = state.cart.map(item =>
               item.id === juice.id ? { ...item, quantity: item.quantity + 1 } : item
-            )
-          };
-        }
-        return { cart: [...state.cart, { ...juice, quantity: 1 }] };
-      }),
-      removeFromCart: (id) => set((state) => ({
-        cart: state.cart.filter(item => item.id !== id)
-      })),
-      updateCartQuantity: (id, delta) => set((state) => ({
-        cart: state.cart.map(item =>
-          item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-        )
-      })),
-      clearCart: () => set({ cart: [] }),
+            );
+          } else {
+            newCart = [...state.cart, { ...juice, quantity: 1 }];
+          }
+          return { cart: newCart };
+        });
+        get().syncCartWithBackend();
+      },
+      removeFromCart: (id) => {
+        set((state) => ({
+          cart: state.cart.filter(item => item.id !== id)
+        }));
+        get().syncCartWithBackend();
+      },
+      updateCartQuantity: (id, delta) => {
+        set((state) => ({
+          cart: state.cart.map(item =>
+            item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
+          )
+        }));
+        get().syncCartWithBackend();
+      },
+      clearCart: () => {
+        set({ cart: [] });
+        get().syncCartWithBackend();
+      },
 
       // ── Builder ────────────────────────────────────────────────────────────
       ingredients: [],
@@ -109,7 +130,6 @@ export const useStore = create<AppState>()(
       addIngredient: (ingredient) => set((state) => {
         const existing = state.ingredients.find(i => i.fruitId === ingredient.fruitId);
         if (existing) {
-          // If in Custom mode, allow adding more percentage of the same fruit
           if (state.mixMode === 'Custom') {
             const total = state.ingredients.reduce((sum, i) => sum + i.percentage, 0);
             if (total >= 100) return state;
@@ -121,8 +141,6 @@ export const useStore = create<AppState>()(
               )
             };
           }
-          // In Single/Duo/Trio, you can't click the same fruit twice to add more
-          // because it's fixed percentage. So do nothing.
           return state;
         }
         return { ingredients: [...state.ingredients, ingredient] };
@@ -141,7 +159,7 @@ export const useStore = create<AppState>()(
         return { ingredients: newIngredients };
       }),
       setBuilderSize: (size) => set({ size }),
-      setMixMode: (mode) => set({ mixMode: mode, ingredients: [] }), // Reset ingredients on mode change
+      setMixMode: (mode) => set({ mixMode: mode, ingredients: [] }), 
       toggleAddIn: (addIn) => set((state) => ({
         addIns: state.addIns.includes(addIn)
           ? state.addIns.filter(i => i !== addIn)
@@ -152,18 +170,32 @@ export const useStore = create<AppState>()(
       // ── Notifications ──────────────────────────────────────────────────────
       notifications: [],
       setNotifications: (notifications) => set({ notifications }),
-      markNotificationRead: (id) => set((state) => ({
-        notifications: state.notifications.map(n =>
-          n.id === id ? { ...n, is_read: true } : n
-        )
-      })),
-      markAllNotificationsRead: () => set((state) => ({
-        notifications: state.notifications.map(n => ({ ...n, is_read: true }))
-      })),
+      markNotificationRead: async (id) => {
+        try {
+          await api.post(`/notifications/${id}/read/`);
+          set((state) => ({
+            notifications: state.notifications.map(n =>
+              n.id === id ? { ...n, is_read: true } : n
+            )
+          }));
+        } catch (err) {
+          console.error('Failed to mark notification as read', err);
+        }
+      },
+      markAllNotificationsRead: async () => {
+        try {
+          await api.post('/notifications/mark-all-read/');
+          set((state) => ({
+            notifications: state.notifications.map(n => ({ ...n, is_read: true }))
+          }));
+        } catch (err) {
+          console.error('Failed to mark all notifications as read', err);
+        }
+      },
       unreadCount: () => get().notifications.filter(n => !n.is_read).length,
 
       // ── Rewards ────────────────────────────────────────────────────────────
-      rewardPoints: 120,
+      rewardPoints: 0,
       addRewardPoints: (pts) => set((state) => ({ rewardPoints: state.rewardPoints + pts })),
 
       // ── Voucher ────────────────────────────────────────────────────────────
@@ -178,15 +210,90 @@ export const useStore = create<AppState>()(
       login: (token, user) => {
         localStorage.setItem('token', token);
         set({ token, user, isAuthenticated: true });
+        // Trigger data sync
+        get().loadCartFromBackend();
+        get().fetchNotifications();
+        get().fetchRewards();
       },
       logout: () => {
         localStorage.removeItem('token');
-        set({ token: null, user: null, isAuthenticated: false });
+        set({ 
+          token: null, 
+          user: null, 
+          isAuthenticated: false,
+          cart: [],
+          notifications: [],
+          rewardPoints: 0,
+          appliedVoucher: null,
+          ingredients: [],
+          addIns: [],
+          size: 'Medium',
+          mixMode: 'Custom'
+        });
       },
 
       // ── UI State ───────────────────────────────────────────────────────────
       isAIChatOpen: false,
       setAIChatOpen: (open) => set({ isAIChatOpen: open }),
+
+      // ── Sync Actions ───────────────────────────────────────────────────────
+      fetchNotifications: async () => {
+        if (!get().isAuthenticated) return;
+        try {
+          const res = await api.get('/notifications/');
+          set({ notifications: res.data });
+        } catch (err) {
+          console.error('Failed to fetch notifications', err);
+        }
+      },
+      fetchRewards: async () => {
+        if (!get().isAuthenticated) return;
+        try {
+          const res = await api.get('/rewards-summary/');
+          set({ rewardPoints: res.data.points });
+        } catch (err) {
+          console.error('Failed to fetch rewards', err);
+        }
+      },
+      syncCartWithBackend: async () => {
+        if (!get().isAuthenticated) return;
+        try {
+          const items = get().cart.map(item => ({
+            product_id: null, // Update if pre-defined products are used
+            custom_juice_data: {
+              name: item.name,
+              size: item.size,
+              addIns: item.addIns,
+              ingredients: item.ingredients,
+              price: item.price,
+              calories: item.calories
+            },
+            quantity: item.quantity
+          }));
+          await api.post('/cart/sync/', { items });
+        } catch (err) {
+          console.error('Failed to sync cart', err);
+        }
+      },
+      loadCartFromBackend: async () => {
+        if (!get().isAuthenticated) return;
+        try {
+          const res = await api.get('/cart/');
+          const backendItems: CartItem[] = res.data.map((item: any) => ({
+            id: `back-${item.id}`,
+            name: item.custom_juice_data.name,
+            price: parseFloat(item.custom_juice_data.price),
+            calories: item.custom_juice_data.calories,
+            size: item.custom_juice_data.size,
+            addIns: item.custom_juice_data.addIns,
+            ingredients: item.custom_juice_data.ingredients,
+            quantity: item.quantity
+          }));
+          set({ cart: backendItems });
+        } catch (err) {
+          console.error('Failed to load cart', err);
+        }
+      }
     }),
     { name: 'juicejunction-storage' }
   )
