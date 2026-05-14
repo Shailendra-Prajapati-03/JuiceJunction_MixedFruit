@@ -5,7 +5,7 @@ from .views import (
     NotificationViewSet, GiftVoucherViewSet, RewardViewSet, CartViewSet,
     calculate_juice, apply_voucher, rewards_summary,
     vendor_register, VendorProductViewSet, VendorOrderViewSet, VendorViewSet,
-    send_otp, verify_otp, verify_registration, resend_otp, debug_data,
+    send_otp, verify_otp, verify_registration, resend_otp,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -39,5 +39,4 @@ urlpatterns = [
     path('auth/verify-otp/', verify_otp, name='verify_otp'),
     path('auth/resend-otp/', resend_otp, name='resend_otp'),
     path('verify-registration/', verify_registration, name='verify_registration'),
-    path('debug-data/', debug_data, name='debug_data'),
 ]

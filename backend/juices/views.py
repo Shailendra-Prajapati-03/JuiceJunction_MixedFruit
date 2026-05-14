@@ -695,16 +695,3 @@ def verify_registration(request):
         })
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(['GET'])
-@permission_classes([permissions.AllowAny])
-def debug_data(request):
-    """Temporary endpoint to see live users and orders."""
-    users = User.objects.all().values('username', 'email', 'date_joined')
-    orders = Order.objects.all().values('id', 'juice_name', 'total_price', 'status', 'created_at')
-    return Response({
-        "total_users": users.count(),
-        "users": list(users),
-        "total_orders": orders.count(),
-        "orders": list(orders)
-    })
