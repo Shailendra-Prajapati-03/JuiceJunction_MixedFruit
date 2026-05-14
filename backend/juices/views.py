@@ -676,26 +676,32 @@ def verify_registration(request):
         otp_record.is_verified = True
         otp_record.save()
         
+        # Check if Email already exists
+        if User.objects.filter(email__iexact=email).exists():
+            return Response({"error": "This email is already registered. Please login instead."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Check if Username already exists
+        requested_username = data.get('username')
+        if requested_username and User.objects.filter(username=requested_username).exists():
+            return Response({"error": "Username already taken. Please choose another one."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Check if Phone Number already exists
+        phone = data.get('phone_number')
+        if phone and User.objects.filter(phone_number=phone).exists():
+            return Response({"error": "This phone number is already linked to an account."}, status=status.HTTP_400_BAD_REQUEST)
+
         # Registration logic...
         is_vendor = data.get('is_vendor', False)
-        
-        # Generate random password if not provided
         password = data.get('password')
         if not password:
             password = "".join(random.choices(string.ascii_letters + string.digits, k=12))
 
-        base_username = data.get('username', email.split('@')[0])
-        username = base_username
-        
-        # Ensure unique username
-        while User.objects.filter(username=username).exists():
-            username = f"{base_username}_{''.join(random.choices(string.digits, k=4))}"
-
         user = User.objects.create_user(
-            username=username,
+            username=requested_username or email.split('@')[0],
             password=password,
             email=email,
-            is_vendor=is_vendor
+            is_vendor=is_vendor,
+            phone_number=phone
         )
         
         if is_vendor:
