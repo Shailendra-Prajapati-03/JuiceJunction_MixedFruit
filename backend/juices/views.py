@@ -607,7 +607,11 @@ def verify_otp(request):
         user = User.objects.filter(email__iexact=email).first()
         if not user:
             # Create a new user if it doesn't exist
-            username = email.split('@')[0] + "_" + "".join(random.choices(string.digits, k=4))
+            base_username = email.split('@')[0]
+            username = base_username
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}_{''.join(random.choices(string.digits, k=4))}"
+                
             user = User.objects.create_user(username=username, email=email)
             
         refresh = RefreshToken.for_user(user)
@@ -680,8 +684,15 @@ def verify_registration(request):
         if not password:
             password = "".join(random.choices(string.ascii_letters + string.digits, k=12))
 
+        base_username = data.get('username', email.split('@')[0])
+        username = base_username
+        
+        # Ensure unique username
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}_{''.join(random.choices(string.digits, k=4))}"
+
         user = User.objects.create_user(
-            username=data['username'],
+            username=username,
             password=password,
             email=email,
             is_vendor=is_vendor
