@@ -1,5 +1,6 @@
 import random
 import string
+import os
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -12,93 +13,49 @@ def generate_otp(length=6):
     """Generate a secure 6-digit numeric OTP."""
     return ''.join(random.choices(string.digits, k=length))
 
+import requests
+import json
+
 def send_otp_email(email, otp):
     """
-    Send a professional branded HTML OTP email to the user.
+    Send email via Brevo API (preferred on cloud) or SMTP (local fallback).
     """
+    api_key = os.getenv('BREVO_API_KEY')
+    
+    if api_key:
+        # Send via Brevo API (Works on Render)
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json"
+        }
+        payload = {
+            "sender": {"name": "JuiceJunction", "email": "juicejunction.business@gmail.com"},
+            "to": [{"email": email}],
+            "subject": f"{otp} is your JuiceJunction verification code",
+            "htmlContent": f"""
+                <div style="font-family: Arial, sans-serif; padding: 20px; text-align: center;">
+                    <h2>Verify Your Email</h2>
+                    <p>Your verification code is:</p>
+                    <h1 style="color: #f97316; font-size: 48px; letter-spacing: 5px;">{otp}</h1>
+                    <p>Valid for 5 minutes. Never share this code.</p>
+                </div>
+            """
+        }
+        try:
+            response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=10)
+            if response.status_code in [201, 200]:
+                return True
+            logger.error(f"Brevo API Error: {response.text}")
+        except Exception as e:
+            logger.error(f"Brevo Exception: {str(e)}")
+            
+    # Fallback to SMTP (for local development)
     subject = f'{otp} is your JuiceJunction verification code'
     from_email = settings.DEFAULT_FROM_EMAIL
-    
-    # HTML Context
-    context = {
-        'otp': otp,
-        'company_name': 'JuiceJunction',
-        'expiration_minutes': 5,
-    }
-    
-    # Responsive HTML Template (inline for simplicity or use a template file)
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            .container {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #f9f9f9;
-            }}
-            .header {{
-                background-color: #f97316;
-                padding: 30px;
-                text-align: center;
-                border-radius: 10px 10px 0 0;
-            }}
-            .content {{
-                background-color: #ffffff;
-                padding: 40px;
-                border-radius: 0 0 10px 10px;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            }}
-            .otp-code {{
-                font-size: 48px;
-                font-weight: 900;
-                color: #f97316;
-                letter-spacing: 10px;
-                margin: 30px 0;
-                text-align: center;
-            }}
-            .footer {{
-                text-align: center;
-                font-size: 12px;
-                color: #94a3b8;
-                margin-top: 20px;
-            }}
-            .warning {{
-                color: #ef4444;
-                font-size: 14px;
-                font-weight: bold;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1 style="color: white; margin: 0; letter-spacing: -1px;">JuiceJunction</h1>
-            </div>
-            <div class="content">
-                <h2 style="color: #1e293b; margin-top: 0;">Verify Your Email</h2>
-                <p style="color: #475569; line-height: 1.6;">Hello,</p>
-                <p style="color: #475569; line-height: 1.6;">Use the verification code below to sign in to your JuiceJunction account. This code is valid for <b>5 minutes</b>.</p>
-                
-                <div class="otp-code">{otp}</div>
-                
-                <p class="warning">Security Warning: Never share this code with anyone. JuiceJunction employees will never ask for your OTP.</p>
-                
-                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;">
-                
-                <p style="color: #475569; line-height: 1.6;">Stay Fresh,<br>The JuiceJunction Team</p>
-            </div>
-            <div class="footer">
-                &copy; 2026 JuiceJunction Inc. | Freshness Delivered.
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    text_content = strip_tags(html_content)
+    text_content = f"Your OTP is {otp}"
+    html_content = f"<h1>{otp}</h1>" # Simple fallback
     
     try:
         msg = EmailMultiAlternatives(subject, text_content, from_email, [email])
@@ -106,7 +63,5 @@ def send_otp_email(email, otp):
         msg.send()
         return True
     except Exception as e:
-        logger.error(f"DETAILED EMAIL ERROR for {email}: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"SMTP Fallback Error: {str(e)}")
         return False
