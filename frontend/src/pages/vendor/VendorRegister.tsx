@@ -43,7 +43,7 @@ const VendorRegister: React.FC = () => {
     try {
       const identifier = verifyWith === 'email' ? formData.email : formData.phone_number;
       if (!otpSent) {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/send-otp/`, { identifier });
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/send-otp/`, { email: identifier });
         setOtpSent(true);
         setMessage(`Verification OTP sent to your ${verifyWith}.`);
       } else {
