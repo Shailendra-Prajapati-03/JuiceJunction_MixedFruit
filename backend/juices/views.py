@@ -616,9 +616,15 @@ def verify_registration(request):
         
         # Registration logic...
         is_vendor = data.get('is_vendor', False)
+        
+        # Generate random password if not provided
+        password = data.get('password')
+        if not password:
+            password = "".join(random.choices(string.ascii_letters + string.digits, k=12))
+
         user = User.objects.create_user(
             username=data['username'],
-            password=data.get('password', User.objects.make_random_password()),
+            password=password,
             email=email,
             is_vendor=is_vendor
         )
