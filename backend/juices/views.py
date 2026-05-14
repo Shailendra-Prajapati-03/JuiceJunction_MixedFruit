@@ -497,7 +497,10 @@ def send_otp(request):
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
         # OTP Generation
-        debug_mode = os.getenv('OTP_DEBUG_MODE', 'False').strip().upper() == 'TRUE'
+        raw_debug_mode = os.getenv('OTP_DEBUG_MODE', 'False')
+        print(f"DEBUG: OTP_DEBUG_MODE value is '{raw_debug_mode}'") # This will show in Render Logs
+        debug_mode = str(raw_debug_mode).strip().upper() == 'TRUE'
+        
         otp = "123456" if debug_mode else generate_otp()
         
         hashed_otp = make_password(otp)
