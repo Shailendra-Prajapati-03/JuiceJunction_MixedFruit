@@ -5,7 +5,7 @@ from .views import (
     NotificationViewSet, GiftVoucherViewSet, RewardViewSet,
     calculate_juice, apply_voucher, rewards_summary,
     vendor_register, VendorProductViewSet, VendorOrderViewSet, VendorViewSet,
-    send_otp, verify_otp, verify_registration,
+    send_otp, verify_otp, verify_registration, resend_otp,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -33,8 +33,9 @@ urlpatterns = [
     # Vendor endpoints
     path('vendor/register/', vendor_register, name='vendor_register'),
     path('vendor/login/', TokenObtainPairView.as_view(), name='vendor_login'),
-    # OTP Authentication
-    path('send-otp/', send_otp, name='send_otp'),
-    path('verify-otp/', verify_otp, name='verify_otp'),
+    # OTP Authentication (Production Ready)
+    path('auth/send-otp/', send_otp, name='send_otp'),
+    path('auth/verify-otp/', verify_otp, name='verify_otp'),
+    path('auth/resend-otp/', resend_otp, name='resend_otp'),
     path('verify-registration/', verify_registration, name='verify_registration'),
 ]

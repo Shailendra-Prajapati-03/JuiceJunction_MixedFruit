@@ -113,21 +113,17 @@ class RewardSerializer(serializers.ModelSerializer):
             return 'Gold membership'
         return 'All rewards unlocked!'
 
-class OTPSendSerializer(serializers.Serializer):
-    identifier = serializers.CharField(max_length=255) # Email or Phone
+from .models import OTPVerification
 
-    def validate_identifier(self, value):
-        import re
-        email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-        phone_regex = r'^\+?1?\d{9,15}$'
-        
-        if re.match(email_regex, value):
-            return value
-        if re.match(phone_regex, value):
-            return value
-        
-        raise serializers.ValidationError("Please provide a valid email or phone number.")
+class OTPSendSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        return value.lower()
 
 class OTPVerifySerializer(serializers.Serializer):
-    identifier = serializers.CharField(max_length=255)
-    otp_code = serializers.CharField(max_length=6)
+    email = serializers.EmailField()
+    otp_code = serializers.CharField(max_length=6, min_length=6)
+
+    def validate_email(self, value):
+        return value.lower()

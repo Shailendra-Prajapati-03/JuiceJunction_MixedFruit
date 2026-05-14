@@ -9,20 +9,21 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.username
 
-class OTP(models.Model):
-    identifier = models.CharField(max_length=255, db_index=True) # email or phone
+class OTPVerification(models.Model):
+    email = models.EmailField(db_index=True)
     otp_code = models.CharField(max_length=128) # hashed
-    created_at = models.DateTimeField(auto_now_add=True)
     is_verified = models.BooleanField(default=False)
     attempts = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
 
     def is_expired(self):
         from django.utils import timezone
-        from datetime import timedelta
-        return timezone.now() > self.created_at + timedelta(minutes=5)
+        return timezone.now() > self.expires_at
 
     def __str__(self):
-        return f"OTP for {self.identifier}"
+        return f"OTP for {self.email}"
 
 class Vendor(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='vendor_profile')

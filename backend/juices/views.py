@@ -10,15 +10,16 @@ from .serializers import (
     UserSerializer, NotificationSerializer, GiftVoucherSerializer, RewardSerializer,
     VendorSerializer, ProductSerializer, OTPSendSerializer, OTPVerifySerializer
 )
-from .models import OTP
-from .services import send_email_otp, send_sms_otp, generate_otp
-import random
-import string
+from django.contrib.auth.hashers import make_password, check_password
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import OTPVerification
+from .utils import generate_otp, send_otp_email
+from datetime import timedelta
 import razorpay
 import hmac
 import hashlib
-from django.contrib.auth.hashers import make_password, check_password
-from rest_framework_simplejwt.tokens import RefreshToken
+import random
+import string
 
 User = get_user_model()
 
@@ -426,104 +427,136 @@ def rewards_summary(request):
 
     return Response(RewardSerializer(reward).data)
     
-# ── OTP Authentication Views ──────────────────────────────────────────────────
+# ── OTP Authentication Views (Production Ready) ────────────────────────────────
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def send_otp(request):
+    """
+    POST /api/auth/send-otp/
+    """
     serializer = OTPSendSerializer(data=request.data)
     if serializer.is_valid():
-        identifier = serializer.validated_data['identifier']
-        target_identifier = identifier
-        method = 'email' if '@' in identifier else 'phone'
+        email = serializer.validated_data['email']
+        ip_address = get_client_ip(request)
         
-        # Priority Logic: If user provides email, check if they have a phone number registered
-        if method == 'email':
-            user = User.objects.filter(email__iexact=identifier).first()
-            if user and user.phone_number:
-                target_identifier = user.phone_number
-                method = 'phone'
-        
-        # Rate Limiting: Check if an OTP was sent recently (within 60 seconds)
-        last_otp = OTP.objects.filter(identifier=identifier).order_by('-created_at').first()
-        if last_otp and (timezone.now() - last_otp.created_at).total_seconds() < 60:
-            return Response({"error": "Please wait 60 seconds before requesting a new OTP."}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        # Rate Limiting: Cooldown check (30 seconds as requested)
+        last_otp = OTPVerification.objects.filter(email=email).order_by('-created_at').first()
+        if last_otp and (timezone.now() - last_otp.created_at).total_seconds() < 30:
+            return Response({
+                "success": False,
+                "message": "Please wait 30 seconds before requesting a new OTP."
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
         otp = generate_otp()
         hashed_otp = make_password(otp)
+        expires_at = timezone.now() + timedelta(minutes=5)
         
-        # Save OTP to DB
-        OTP.objects.filter(identifier=identifier).delete()
-        OTP.objects.create(identifier=identifier, otp_code=hashed_otp)
+        # Clear old unverified OTPs for this email
+        OTPVerification.objects.filter(email=email, is_verified=False).delete()
         
-        success = False
-        if method == 'email':
-            success = send_email_otp(target_identifier, otp)
-        else:
-            success = send_sms_otp(target_identifier, otp)
-            
-        if success:
+        # Create new verification record
+        OTPVerification.objects.create(
+            email=email,
+            otp_code=hashed_otp,
+            expires_at=expires_at,
+            ip_address=ip_address
+        )
+        
+        # Send Email
+        if send_otp_email(email, otp):
             return Response({
-                "message": f"OTP sent to your registered {method}",
-                "method": method,
-                "target": target_identifier if method == 'email' else f"******{target_identifier[-4:]}"
+                "success": True,
+                "message": "OTP sent successfully"
             }, status=status.HTTP_200_OK)
         else:
-            return Response({"error": "Failed to send OTP. Please try again."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({
+                "success": False, 
+                "message": "Failed to send email. Please check your configuration."
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def verify_otp(request):
+    """
+    POST /api/auth/verify-otp/
+    """
     serializer = OTPVerifySerializer(data=request.data)
     if serializer.is_valid():
-        identifier = serializer.validated_data['identifier']
+        email = serializer.validated_data['email']
         otp_code = serializer.validated_data['otp_code']
         
         try:
-            otp_record = OTP.objects.get(identifier=identifier, is_verified=False)
-        except OTP.DoesNotExist:
-            return Response({"error": "Invalid or expired OTP request."}, status=status.HTTP_400_BAD_REQUEST)
+            otp_record = OTPVerification.objects.filter(
+                email=email, 
+                is_verified=False
+            ).order_by('-created_at').first()
+            
+            if not otp_record:
+                return Response({
+                    "success": False,
+                    "message": "No active OTP request found for this email."
+                }, status=status.HTTP_404_NOT_FOUND)
+                
+        except Exception:
+            return Response({
+                "success": False,
+                "message": "Invalid request."
+            }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Check Expiration
         if otp_record.is_expired():
-            otp_record.delete()
-            return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "success": False,
+                "message": "OTP has expired. Please request a new one."
+            }, status=status.HTTP_400_BAD_REQUEST)
         
-        if otp_record.attempts >= 3:
-            otp_record.delete()
-            return Response({"error": "Max attempts reached. Please request a new OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        # Check Max Attempts (User requested 5)
+        if otp_record.attempts >= 5:
+            return Response({
+                "success": False,
+                "message": "Maximum attempts reached. Please request a new OTP."
+            }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Verify OTP
         if not check_password(otp_code, otp_record.otp_code):
             otp_record.attempts += 1
             otp_record.save()
-            return Response({"error": "Invalid OTP code."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "success": False,
+                "message": f"Invalid OTP. {5 - otp_record.attempts} attempts remaining."
+            }, status=status.HTTP_400_BAD_REQUEST)
         
-        # OTP is valid
+        # Success!
         otp_record.is_verified = True
         otp_record.save()
         
-        # Login or Register User
-        user = None
-        if '@' in identifier:
-            user = User.objects.filter(Q(email__iexact=identifier) | Q(username__iexact=identifier)).first()
-            if not user:
-                username = identifier.split('@')[0] + str(random.randint(1000, 9999))
-                user = User.objects.create_user(username=username, email=identifier)
-        else:
-            user = User.objects.filter(Q(phone_number=identifier) | Q(username=identifier)).first()
-            if not user:
-                username = "user_" + identifier[-4:] + str(random.randint(1000, 9999))
-                user = User.objects.create_user(username=username, phone_number=identifier)
-        
+        # Login or Create User
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            # Create a new user if it doesn't exist
+            username = email.split('@')[0] + "_" + "".join(random.choices(string.digits, k=4))
+            user = User.objects.create_user(username=username, email=email)
+            
         refresh = RefreshToken.for_user(user)
         return Response({
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-            'user': {
-                'username': user.username,
-                'email': user.email,
-                'phone_number': user.phone_number,
-                'is_vendor': user.is_vendor
+            "success": True,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_vendor": user.is_vendor
             }
         }, status=status.HTTP_200_OK)
         
@@ -531,80 +564,77 @@ def verify_otp(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+def resend_otp(request):
+    """
+    POST /api/auth/resend-otp/
+    """
+    email = request.data.get('email')
+    if not email:
+        return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    return send_otp(request) # Reuse send_otp logic
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
 def verify_registration(request):
+    """
+    Special verification for registration (handles vendor creation)
+    """
     data = request.data
     email = data.get('email')
-    phone = data.get('phone_number')
     otp_code = data.get('otp_code')
     
-    # Prioritize phone for verification if both provided
-    identifier = phone if phone and data.get('verified_with') == 'phone' else email
-    if not identifier:
-        identifier = phone or email
-    
-    if not identifier or not otp_code:
-        return Response({"error": "Identifier and OTP code are required."}, status=status.HTTP_400_BAD_REQUEST)
+    if not email or not otp_code:
+        return Response({"error": "Email and OTP code are required."}, status=status.HTTP_400_BAD_REQUEST)
     
     try:
-        otp_record = OTP.objects.get(identifier=identifier, is_verified=False)
-    except OTP.DoesNotExist:
-        return Response({"error": "Invalid or expired OTP request."}, status=status.HTTP_400_BAD_REQUEST)
-    
-    if otp_record.is_expired():
-        otp_record.delete()
-        return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
-    
-    if not check_password(otp_code, otp_record.otp_code):
-        otp_record.attempts += 1
+        otp_record = OTPVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first()
+        if not otp_record:
+             return Response({"error": "No OTP request found."}, status=status.HTTP_400_BAD_REQUEST)
+             
+        if otp_record.is_expired():
+            return Response({"error": "OTP has expired."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not check_password(otp_code, otp_record.otp_code):
+            otp_record.attempts += 1
+            otp_record.save()
+            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        otp_record.is_verified = True
         otp_record.save()
-        if otp_record.attempts >= 3:
-            otp_record.delete()
-            return Response({"error": "Max attempts reached. Please request a new OTP."}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"error": "Invalid OTP code."}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # OTP is valid
-    otp_record.is_verified = True
-    otp_record.save()
-    
-    # Create User
-    is_vendor = data.get('is_vendor', False)
-    try:
+        
+        # Registration logic...
+        is_vendor = data.get('is_vendor', False)
         user = User.objects.create_user(
             username=data['username'],
-            password=data['password'],
-            email=data.get('email', ''),
-            phone_number=data.get('phone_number', ''),
+            password=data.get('password', User.objects.make_random_password()),
+            email=email,
             is_vendor=is_vendor
         )
         
         if is_vendor:
-            if not data.get('agreed_to_terms'):
-                return Response({'error': 'You must agree to the Vendor Marketplace Terms & Conditions.'}, status=status.HTTP_400_BAD_REQUEST)
-                
             Vendor.objects.create(
                 user=user,
-                shop_name=data.get('shop_name', 'My Shop'),
+                shop_name=data.get('shop_name', 'Juice Shop'),
                 owner_name=data.get('owner_name', 'Owner'),
-                phone=data.get('phone_number', ''),
-                email=data.get('email', ''),
+                email=email,
                 address=data.get('address', ''),
                 gst_number=data.get('gst_number', ''),
                 fssai_license=data.get('fssai_license', ''),
                 agreed_to_terms=True
             )
-            return Response({'message': 'Vendor registered successfully. Waiting for admin approval.'}, status=status.HTTP_201_CREATED)
-        
+            return Response({'success': True, 'message': 'Vendor registered successfully.'})
+            
         refresh = RefreshToken.for_user(user)
         return Response({
-            'refresh': str(refresh),
+            'success': True,
             'access': str(refresh.access_token),
+            'refresh': str(refresh),
             'user': {
                 'username': user.username,
                 'email': user.email,
-                'phone_number': user.phone_number,
                 'is_vendor': user.is_vendor
             }
-        }, status=status.HTTP_201_CREATED)
-        
+        })
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Fruit, Recipe, RecipeIngredient, Order, Notification, GiftVoucher, Reward, CustomUser, Vendor, Product, OTP
+from .models import Fruit, Recipe, RecipeIngredient, Order, Notification, GiftVoucher, Reward, CustomUser, Vendor, Product, OTPVerification
 
 admin.site.register(CustomUser, UserAdmin)
 
@@ -21,11 +21,11 @@ class VendorAdmin(admin.ModelAdmin):
         queryset.update(is_approved=False)
     reject_vendors.short_description = "Reject selected vendors"
 
-@admin.register(OTP)
-class OTPAdmin(admin.ModelAdmin):
-    list_display = ('identifier', 'is_verified', 'attempts', 'created_at')
-    list_filter = ('is_verified', 'created_at')
-    search_fields = ('identifier',)
+@admin.register(OTPVerification)
+class OTPVerificationAdmin(admin.ModelAdmin):
+    list_display = ('email', 'is_verified', 'attempts', 'created_at', 'expires_at', 'ip_address')
+    list_filter = ('is_verified', 'created_at', 'expires_at')
+    search_fields = ('email', 'ip_address')
     readonly_fields = ('created_at',)
 
 admin.site.register(Product)
