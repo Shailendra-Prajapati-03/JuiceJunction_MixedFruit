@@ -496,12 +496,16 @@ def send_otp(request):
                 "message": "Please wait 30 seconds before requesting a new OTP."
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
-        # OTP Generation
-        raw_debug_mode = os.getenv('OTP_DEBUG_MODE', 'False')
-        print(f"DEBUG: OTP_DEBUG_MODE value is '{raw_debug_mode}'") # This will show in Render Logs
-        debug_mode = str(raw_debug_mode).strip().upper() == 'TRUE'
+        # OTP Generation Logic
+        # 1. If OTP_DEBUG_MODE is True -> Use 123456
+        # 2. If BREVO_API_KEY is missing -> Use 123456 (Auto-fallback for easy testing)
+        # 3. Otherwise -> Generate real OTP
         
-        otp = "123456" if debug_mode else generate_otp()
+        debug_mode = os.getenv('OTP_DEBUG_MODE', 'False').strip().upper() == 'TRUE'
+        has_api_key = os.getenv('BREVO_API_KEY') is not None
+        
+        is_mock = debug_mode or not has_api_key
+        otp = "123456" if is_mock else generate_otp()
         
         hashed_otp = make_password(otp)
         expires_at = timezone.now() + timedelta(minutes=5)
@@ -509,7 +513,7 @@ def send_otp(request):
         # Clear old unverified OTPs for this email
         OTPVerification.objects.filter(email=email, is_verified=False).delete()
         
-        # Create new verification record
+        # Create record
         OTPVerification.objects.create(
             email=email,
             otp_code=hashed_otp,
@@ -517,13 +521,18 @@ def send_otp(request):
             ip_address=ip_address
         )
         
-        # Send Email (Skip if in debug mode)
-        email_sent = True if debug_mode else send_otp_email(email, otp)
-        
-        if email_sent:
+        # Send Email (Skip if mock mode)
+        if is_mock:
             return Response({
                 "success": True,
-                "message": "OTP sent successfully" if not debug_mode else "DEBUG MODE: Use 123456"
+                "message": "DEBUG MODE: Use 123456"
+            }, status=status.HTTP_200_OK)
+            
+        # Real send
+        if send_otp_email(email, otp):
+            return Response({
+                "success": True,
+                "message": "OTP sent successfully"
             }, status=status.HTTP_200_OK)
         else:
             return Response({
