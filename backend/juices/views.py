@@ -495,7 +495,10 @@ def send_otp(request):
                 "message": "Please wait 30 seconds before requesting a new OTP."
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
-        otp = generate_otp()
+        # OTP Generation
+        debug_mode = os.getenv('OTP_DEBUG_MODE', 'False') == 'True'
+        otp = "123456" if debug_mode else generate_otp()
+        
         hashed_otp = make_password(otp)
         expires_at = timezone.now() + timedelta(minutes=5)
         
@@ -510,11 +513,13 @@ def send_otp(request):
             ip_address=ip_address
         )
         
-        # Send Email
-        if send_otp_email(email, otp):
+        # Send Email (Skip if in debug mode)
+        email_sent = True if debug_mode else send_otp_email(email, otp)
+        
+        if email_sent:
             return Response({
                 "success": True,
-                "message": "OTP sent successfully"
+                "message": "OTP sent successfully" if not debug_mode else "DEBUG MODE: Use 123456"
             }, status=status.HTTP_200_OK)
         else:
             return Response({

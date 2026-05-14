@@ -42,6 +42,8 @@ services:
         sync: false
       - key: BREVO_API_KEY
         sync: false
+      - key: OTP_DEBUG_MODE
+        value: "False"
 
 databases:
   - name: juicejunction-db
