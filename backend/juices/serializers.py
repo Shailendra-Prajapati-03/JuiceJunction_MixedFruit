@@ -45,13 +45,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
-<<<<<<< HEAD
     fruit_name = serializers.ReadOnlyField(source='fruit.name')
     fruit_color = serializers.ReadOnlyField(source='fruit.color_hex')
-=======
-    fruit_name = serializers.ReadOnlyField(source='fruit.name', default='Unknown Fruit')
-    fruit_color = serializers.ReadOnlyField(source='fruit.color_hex', default='#CCCCCC')
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 
     class Meta:
         model = RecipeIngredient
@@ -63,11 +58,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Recipe
-<<<<<<< HEAD
         fields = ('id', 'name', 'description', 'category', 'image', 'base_price', 'ingredients', 'is_signature')
-=======
-        fields = ('id', 'name', 'description', 'image', 'base_price', 'ingredients', 'is_signature')
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 
 
 class OrderSerializer(serializers.ModelSerializer):

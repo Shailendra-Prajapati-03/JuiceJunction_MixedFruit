@@ -15,11 +15,8 @@ router.register(r'recipes', RecipeViewSet)
 router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'users', UserViewSet)
 router.register(r'notifications', NotificationViewSet, basename='notification')
-<<<<<<< HEAD
 router.register(r'gifts', GiftVoucherViewSet)
-=======
-router.register(r'vouchers', GiftVoucherViewSet)
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
+
 router.register(r'rewards', RewardViewSet, basename='reward')
 router.register(r'cart', CartViewSet, basename='cart')
 router.register(r'vendor/products', VendorProductViewSet, basename='vendor-product')
