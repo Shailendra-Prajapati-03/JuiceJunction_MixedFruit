@@ -62,7 +62,11 @@ def send_otp_email(email, otp):
         msg.attach_alternative(html_content, "text/html")
         msg.send()
         return True
-def log_activity(request, user, action):
+    except Exception as e:
+        logger.error(f"SMTP Error: {str(e)}")
+        return False
+
+def log_activity(request, user, action, details=None):
     """
     Log a user activity to the database.
     """
@@ -79,6 +83,6 @@ def log_activity(request, user, action):
         action=action,
         ip_address=ip,
         user_agent=request.META.get('HTTP_USER_AGENT', ''),
-        device_info={'path': request.path, 'method': request.method}
+        details=details or {'path': request.path, 'method': request.method}
     )
     logger.info(f"Activity logged: {user.username} - {action}")

@@ -1,26 +1,39 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Fruit, Recipe, RecipeIngredient, Order, Notification, GiftVoucher, Reward, Vendor, Product
+from .models import (
+    Fruit, Recipe, RecipeIngredient, Order, OrderItem, 
+    Notification, GiftVoucher, Reward, Vendor, Product, 
+    LoginHistory, ActivityLog, CartItem, OTPVerification
+)
 
 User = get_user_model()
-
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password', 'phone_number', 'is_vendor', 'role')
+        fields = ('id', 'username', 'email', 'password', 'phone_number', 'is_vendor', 'role', 'is_verified')
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         return user
 
+class LoginHistorySerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    class Meta:
+        model = LoginHistory
+        fields = '__all__'
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    class Meta:
+        model = ActivityLog
+        fields = ('id', 'user', 'action', 'details', 'ip_address', 'user_agent', 'timestamp')
 
 class FruitSerializer(serializers.ModelSerializer):
     class Meta:
         model = Fruit
         fields = '__all__'
-
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -32,7 +45,6 @@ class VendorSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('is_approved', 'rating', 'created_at')
 
-
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
@@ -43,7 +55,6 @@ class ProductSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('vendor',)
 
-
 class RecipeIngredientSerializer(serializers.ModelSerializer):
     fruit_name = serializers.ReadOnlyField(source='fruit.name')
     fruit_color = serializers.ReadOnlyField(source='fruit.color_hex')
@@ -52,14 +63,12 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
         model = RecipeIngredient
         fields = ('id', 'fruit', 'fruit_name', 'fruit_color', 'percentage')
 
-
 class RecipeSerializer(serializers.ModelSerializer):
     ingredients = RecipeIngredientSerializer(many=True, read_only=True)
 
     class Meta:
         model = Recipe
         fields = ('id', 'name', 'description', 'category', 'image', 'base_price', 'ingredients', 'is_signature')
-
 
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
@@ -77,13 +86,11 @@ class OrderSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('user', 'created_at', 'tracking_step')
 
-
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ('id', 'user', 'order', 'title', 'message', 'notification_type', 'is_read', 'created_at')
         read_only_fields = ('user', 'created_at',)
-
 
 class GiftVoucherSerializer(serializers.ModelSerializer):
     class Meta:
@@ -93,14 +100,13 @@ class GiftVoucherSerializer(serializers.ModelSerializer):
             'min_order', 'expiry_date', 'is_active', 'usage_limit', 'times_used'
         )
 
-
 class RewardSerializer(serializers.ModelSerializer):
     points_to_next = serializers.SerializerMethodField()
     next_reward_label = serializers.SerializerMethodField()
 
     class Meta:
         model = Reward
-        fields = ('id', 'user', 'user_session', 'points', 'level', 'points_to_next', 'next_reward_label', 'updated_at')
+        fields = ('id', 'user', 'points', 'level', 'points_to_next', 'next_reward_label', 'updated_at')
         read_only_fields = ('user', 'updated_at')
 
     def get_points_to_next(self, obj):
@@ -121,31 +127,17 @@ class RewardSerializer(serializers.ModelSerializer):
             return 'Gold membership'
         return 'All rewards unlocked!'
 
-
-from .models import CartItem
-
 class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CartItem
         fields = ('id', 'user', 'product_id', 'custom_juice_data', 'quantity', 'created_at')
         read_only_fields = ('user', 'created_at')
 
-from .models import OTPVerification
-
 class OTPSendSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
     def validate_email(self, value):
-        email = value.lower()
-        if not email.endswith('@gmail.com'):
-            raise serializers.ValidationError("Only @gmail.com addresses are supported.")
-        return email
-
-class ActivityLogSerializer(serializers.ModelSerializer):
-    username = serializers.ReadOnlyField(source='user.username')
-    class Meta:
-        model = ActivityLog
-        fields = ('id', 'user', 'username', 'action', 'ip_address', 'user_agent', 'device_info', 'timestamp')
+        return value.lower()
 
 class OTPVerifySerializer(serializers.Serializer):
     email = serializers.EmailField()

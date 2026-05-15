@@ -12,9 +12,20 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='CUSTOMER')
     is_vendor = models.BooleanField(default=False)
     phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
+    
+    # OTP & Verification
+    is_verified = models.BooleanField(default=False)
+    otp_code = models.CharField(max_length=128, null=True, blank=True) # Hashed
+    otp_expiry = models.DateTimeField(null=True, blank=True)
+    last_otp_resend = models.DateTimeField(null=True, blank=True)
+    
+    # Security Tracking
+    failed_login_attempts = models.IntegerField(default=0)
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    device_id = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
-        return self.username
+        return f"{self.username} ({self.role})"
 
 class OTPVerification(models.Model):
     email = models.EmailField(db_index=True)
@@ -241,13 +252,25 @@ class OrderItem(models.Model):
 class ActivityLog(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='activity_logs')
     action = models.CharField(max_length=255)
+    details = models.JSONField(null=True, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.TextField(null=True, blank=True)
-    device_info = models.JSONField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.action} at {self.timestamp}"
+
+class LoginHistory(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='login_history')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    browser = models.CharField(max_length=100, null=True, blank=True)
+    device = models.CharField(max_length=100, null=True, blank=True)
+    location = models.CharField(max_length=255, null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} logged in from {self.ip_address} at {self.timestamp}"
 
 class CustomerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer_profile')

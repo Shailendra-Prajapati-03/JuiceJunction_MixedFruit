@@ -6,7 +6,7 @@ from django.conf import settings
 
 from django.db.models import Q
 from django.contrib.auth import get_user_model
-from .models import Fruit, Recipe, Order, Notification, GiftVoucher, Reward, Vendor, Product
+from .models import Fruit, Recipe, Order, Notification, GiftVoucher, Reward, Vendor, Product, ActivityLog
 from .serializers import (
     FruitSerializer, RecipeSerializer, OrderSerializer,
     UserSerializer, NotificationSerializer, GiftVoucherSerializer, RewardSerializer,
@@ -15,8 +15,8 @@ from .serializers import (
 )
 from django.contrib.auth.hashers import make_password, check_password
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import OTPVerification, CartItem
-from .utils import generate_otp, send_otp_email
+from .models import OTPVerification, CartItem, LoginHistory
+from .utils import generate_otp, send_otp_email, log_activity
 from datetime import timedelta
 import razorpay
 import hmac
@@ -103,11 +103,12 @@ class AdminDashboardViewSet(viewsets.ViewSet):
         total_vendors = Vendor.objects.count()
         total_orders = Order.objects.count()
         delivered_orders = Order.objects.filter(status='Delivered')
-        total_revenue = delivered_orders.aggregate(total=models.Sum('total_price'))['total'] or 0
+        total_revenue = delivered_orders.aggregate(total=Sum('total_price'))['total'] or 0
         
         # System activity
-        from .serializers import ActivityLogSerializer
-        recent_logs = ActivityLog.objects.all().order_by('-timestamp')[:20]
+        from .serializers import ActivityLogSerializer, LoginHistorySerializer
+        recent_logs = ActivityLog.objects.all().order_by('-timestamp')[:50]
+        recent_logins = LoginHistory.objects.all().order_by('-timestamp')[:50]
         
         # Vendor approval queue
         pending_vendors = Vendor.objects.filter(is_approved=False).count()
@@ -122,9 +123,17 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                     "total_revenue": float(total_revenue),
                     "pending_approvals": pending_vendors
                 },
-                "recent_activity": ActivityLogSerializer(recent_logs, many=True).data
+                "recent_activity": ActivityLogSerializer(recent_logs, many=True).data,
+                "recent_logins": LoginHistorySerializer(recent_logins, many=True).data
             }
         })
+
+    @action(detail=False, methods=['post'], url_path='maintenance')
+    def maintenance_action(self, request):
+        action_type = request.data.get('action')
+        # Simulate maintenance logic
+        log_activity(request, request.user, f'MAINTENANCE_{action_type.upper()}', {'status': 'completed'})
+        return Response({"success": True, "message": f"Maintenance action {action_type} completed."})
 
 class RecipeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Recipe.objects.all()
@@ -614,6 +623,11 @@ def send_otp(request):
             expires_at=expires_at,
             ip_address=ip_address
         )
+
+        # Log Activity
+        user = User.objects.filter(email__iexact=email).first()
+        if user:
+            log_activity(request, user, 'OTP_SENT', {'email': email})
             
         # Real send
         if send_otp_email(email, otp):
@@ -700,6 +714,23 @@ def verify_otp(request):
                 username = f"{base_username}_{''.join(random.choices(string.digits, k=4))}"
                 
             user = User.objects.create_user(username=username, email=email)
+            
+        # Record Login History
+        LoginHistory.objects.create(
+            user=user,
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            device=request.META.get('HTTP_SEC_CH_UA_PLATFORM', 'Unknown'),
+            browser=request.META.get('HTTP_SEC_CH_UA', 'Unknown')
+        )
+
+        # Update User Security Fields
+        user.last_login_ip = get_client_ip(request)
+        user.failed_login_attempts = 0
+        user.save()
+
+        # Log Activity
+        log_activity(request, user, 'LOGIN_SUCCESS', {'method': 'OTP'})
             
         refresh = RefreshToken.for_user(user)
         return Response({
@@ -805,6 +836,18 @@ def verify_registration(request):
             )
             return Response({'success': True, 'message': 'Vendor registered successfully.'})
             
+        # Record Login History
+        LoginHistory.objects.create(
+            user=user,
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            device=request.META.get('HTTP_SEC_CH_UA_PLATFORM', 'Unknown'),
+            browser=request.META.get('HTTP_SEC_CH_UA', 'Unknown')
+        )
+
+        # Log Activity
+        log_activity(request, user, 'REGISTRATION_SUCCESS', {'role': user.role})
+
         refresh = RefreshToken.for_user(user)
         return Response({
             'success': True,

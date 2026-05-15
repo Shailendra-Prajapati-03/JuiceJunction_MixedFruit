@@ -105,7 +105,7 @@ if DATABASE_URL:
     }
 else:
     # Fallback for local development
-    print("⚠️  WARNING: DATABASE_URL not found. Using local SQLite.")
+    print("WARNING: DATABASE_URL not found. Using local SQLite.")
     DATABASES = {
         'default': dj_database_url.config(
             default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',

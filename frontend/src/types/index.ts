@@ -133,10 +133,41 @@ export interface Reward {
 
 export interface ActivityLog {
   id: number;
-  username: string;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+  };
   action: string;
+  details: any;
+  ip_address: string;
+  timestamp: string;
+}
+
+export interface LoginHistory {
+  id: number;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+  };
   ip_address: string;
   user_agent: string;
-  device_info: any;
+  device: string;
+  browser: string;
   timestamp: string;
+}
+
+export interface DashboardStats {
+  total_users: number;
+  total_vendors: number;
+  total_orders: number;
+  total_revenue: number;
+  pending_approvals: number;
+}
+
+export interface AdminDashboardData {
+  stats: DashboardStats;
+  recent_activity: ActivityLog[];
+  recent_logins: LoginHistory[];
 }
