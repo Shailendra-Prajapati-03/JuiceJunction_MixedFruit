@@ -20,7 +20,7 @@ const RecipeDetail: React.FC = () => {
   useEffect(() => {
     const fetchRecipe = async () => {
       try {
-        const res = await api.get<Recipe>(`/recipes/${id}/`);
+        const res = await api.get<Recipe>(`/api/recipes/${id}/`);
         setRecipe(res.data);
       } catch (err) {
         console.error("Failed to fetch recipe", err);

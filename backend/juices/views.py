@@ -40,6 +40,92 @@ class FruitViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
 
 
+class IsVendor(permissions.BasePermission):
+    """
+    Allows access only to users with VENDOR role.
+    """
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and (request.user.role == 'VENDOR' or getattr(request.user, 'is_vendor', False)))
+
+class VendorDashboardViewSet(viewsets.ViewSet):
+    permission_classes = [IsVendor]
+
+    def list(self, request):
+        vendor = getattr(request.user, 'vendor_profile', None)
+        if not vendor:
+            return Response({
+                "success": False,
+                "message": "Vendor profile not found."
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+        orders = Order.objects.filter(vendor=vendor)
+        total_orders = orders.count()
+        delivered_orders = orders.filter(status='Delivered')
+        total_revenue = delivered_orders.aggregate(total=models.Sum('total_price'))['total'] or 0
+        
+        # Recent activity
+        recent_orders = OrderSerializer(orders.order_by('-created_at')[:5], many=True).data
+        
+        # Simple analytics for products
+        products = Product.objects.filter(vendor=vendor)
+        total_products = products.count()
+        
+        return Response({
+            "success": True,
+            "data": {
+                "stats": {
+                    "total_orders": total_orders,
+                    "total_revenue": float(total_revenue),
+                    "total_products": total_products,
+                    "rating": float(vendor.rating)
+                },
+                "recent_orders": recent_orders,
+                "shop_details": {
+                    "name": vendor.shop_name,
+                    "is_approved": vendor.is_approved
+                }
+            }
+        })
+
+
+class IsAdmin(permissions.BasePermission):
+    """
+    Allows access only to users with ADMIN or SUPER_ADMIN role.
+    """
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and (request.user.role in ['ADMIN', 'SUPER_ADMIN'] or getattr(request.user, 'is_staff', False)))
+
+class AdminDashboardViewSet(viewsets.ViewSet):
+    permission_classes = [IsAdmin]
+
+    def list(self, request):
+        total_users = User.objects.count()
+        total_vendors = Vendor.objects.count()
+        total_orders = Order.objects.count()
+        delivered_orders = Order.objects.filter(status='Delivered')
+        total_revenue = delivered_orders.aggregate(total=models.Sum('total_price'))['total'] or 0
+        
+        # System activity
+        from .serializers import ActivityLogSerializer
+        recent_logs = ActivityLog.objects.all().order_by('-timestamp')[:20]
+        
+        # Vendor approval queue
+        pending_vendors = Vendor.objects.filter(is_approved=False).count()
+        
+        return Response({
+            "success": True,
+            "data": {
+                "stats": {
+                    "total_users": total_users,
+                    "total_vendors": total_vendors,
+                    "total_orders": total_orders,
+                    "total_revenue": float(total_revenue),
+                    "pending_approvals": pending_vendors
+                },
+                "recent_activity": ActivityLogSerializer(recent_logs, many=True).data
+            }
+        })
+
 class RecipeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
@@ -57,6 +143,19 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = serializer.save(
             user=self.request.user if self.request.user.is_authenticated else None
         )
+        
+        # Create OrderItems from the items JSON data
+        items_data = self.request.data.get('items', [])
+        for item in items_data:
+            OrderItem.objects.create(
+                order=order,
+                name=item.get('name', 'Custom Juice'),
+                price=item.get('price', 0),
+                quantity=item.get('quantity', 1),
+                size=item.get('size', 'Medium'),
+                custom_juice_data=item # Store the whole item data as custom if needed
+            )
+
         # Auto-create a notification for the new order
         Notification.objects.create(
             user=order.user,
@@ -499,15 +598,8 @@ def send_otp(request):
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
         # OTP Generation Logic
-        # 1. If OTP_DEBUG_MODE is True -> Use 123456
-        # 2. If BREVO_API_KEY is missing -> Use 123456 (Auto-fallback for easy testing)
-        # 3. Otherwise -> Generate real OTP
-        
-        debug_mode = os.getenv('OTP_DEBUG_MODE', 'False').strip().upper() == 'TRUE'
-        has_api_key = os.getenv('BREVO_API_KEY') is not None
-        
-        is_mock = debug_mode or not has_api_key
-        otp = "123456" if is_mock else generate_otp()
+        # Generate real OTP for production security
+        otp = generate_otp()
         
         hashed_otp = make_password(otp)
         expires_at = timezone.now() + timedelta(minutes=5)
@@ -522,13 +614,6 @@ def send_otp(request):
             expires_at=expires_at,
             ip_address=ip_address
         )
-        
-        # Send Email (Skip if mock mode)
-        if is_mock:
-            return Response({
-                "success": True,
-                "message": "DEBUG MODE: Use 123456"
-            }, status=status.HTTP_200_OK)
             
         # Real send
         if send_otp_email(email, otp):
@@ -703,6 +788,7 @@ def verify_registration(request):
             password=password,
             email=email,
             is_vendor=is_vendor,
+            role='VENDOR' if is_vendor else 'CUSTOMER',
             phone_number=phone
         )
         

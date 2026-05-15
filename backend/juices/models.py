@@ -3,6 +3,13 @@ from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 
 class CustomUser(AbstractUser):
+    ROLE_CHOICES = [
+        ('CUSTOMER', 'Customer'),
+        ('VENDOR', 'Vendor'),
+        ('ADMIN', 'Admin'),
+        ('SUPER_ADMIN', 'Super Admin'),
+    ]
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='CUSTOMER')
     is_vendor = models.BooleanField(default=False)
     phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
 
@@ -218,3 +225,35 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f"Cart Item for {self.user.username if self.user else 'Guest'}"
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, related_name='order_items', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True)
+    name = models.CharField(max_length=200) # Snapshot of product name
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    quantity = models.IntegerField(default=1)
+    size = models.CharField(max_length=20, default='Medium')
+    custom_juice_data = models.JSONField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.quantity}x {self.name} for Order #{self.order.id}"
+
+class ActivityLog(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='activity_logs')
+    action = models.CharField(max_length=255)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    device_info = models.JSONField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action} at {self.timestamp}"
+
+class CustomerProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer_profile')
+    default_address = models.TextField(null=True, blank=True)
+    loyalty_points = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Profile of {self.user.username}"

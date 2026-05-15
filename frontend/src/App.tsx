@@ -19,6 +19,8 @@ import Support from './pages/Support';
 import RecipeDetail from './pages/RecipeDetail';
 import Legal from './pages/Legal';
 import Subscriptions from './pages/Subscriptions';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import VendorDashboard from './pages/vendor/VendorDashboard';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsAndConditions from './pages/legal/TermsAndConditions';
 import RefundPolicy from './pages/legal/RefundPolicy';
@@ -55,6 +57,7 @@ function App() {
             <Route path="subscriptions" element={<Subscriptions />} />
             <Route path="recipe/:id" element={<RecipeDetail />} />
           </Route>
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/vendor/login" element={<VendorLogin />} />
           <Route path="/vendor/register" element={<VendorRegister />} />
           <Route path="/vendor" element={<VendorLayout />}>

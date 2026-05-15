@@ -50,7 +50,9 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  phone_number?: string;
   is_vendor?: boolean;
+  role: 'CUSTOMER' | 'VENDOR' | 'ADMIN' | 'SUPER_ADMIN';
 }
 
 export interface Vendor {
@@ -127,4 +129,14 @@ export interface Reward {
   points_to_next: number;
   next_reward_label: string;
   updated_at: string;
+}
+
+export interface ActivityLog {
+  id: number;
+  username: string;
+  action: string;
+  ip_address: string;
+  user_agent: string;
+  device_info: any;
+  timestamp: string;
 }

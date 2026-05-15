@@ -8,7 +8,7 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password', 'phone_number', 'is_vendor')
+        fields = ('id', 'username', 'email', 'password', 'phone_number', 'is_vendor', 'role')
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
@@ -61,11 +61,18 @@ class RecipeSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'description', 'category', 'image', 'base_price', 'ingredients', 'is_signature')
 
 
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ('id', 'product', 'name', 'price', 'quantity', 'size', 'custom_juice_data')
+
 class OrderSerializer(serializers.ModelSerializer):
+    order_items = OrderItemSerializer(many=True, read_only=True)
+
     class Meta:
         model = Order
         fields = (
-            'id', 'user', 'juice_name', 'items', 'total_price', 'status',
+            'id', 'user', 'juice_name', 'items', 'order_items', 'total_price', 'status',
             'tracking_step', 'delivery_address', 'payment_method', 'created_at'
         )
         read_only_fields = ('user', 'created_at', 'tracking_step')
@@ -133,6 +140,12 @@ class OTPSendSerializer(serializers.Serializer):
         if not email.endswith('@gmail.com'):
             raise serializers.ValidationError("Only @gmail.com addresses are supported.")
         return email
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    username = serializers.ReadOnlyField(source='user.username')
+    class Meta:
+        model = ActivityLog
+        fields = ('id', 'user', 'username', 'action', 'ip_address', 'user_agent', 'device_info', 'timestamp')
 
 class OTPVerifySerializer(serializers.Serializer):
     email = serializers.EmailField()

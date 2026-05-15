@@ -5,6 +5,7 @@ from .views import (
     NotificationViewSet, GiftVoucherViewSet, RewardViewSet, CartViewSet,
     calculate_juice, apply_voucher, rewards_summary,
     vendor_register, VendorProductViewSet, VendorOrderViewSet, VendorViewSet,
+    VendorDashboardViewSet, AdminDashboardViewSet,
     send_otp, verify_otp, verify_registration, resend_otp,
 )
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -21,6 +22,8 @@ router.register(r'rewards', RewardViewSet, basename='reward')
 router.register(r'cart', CartViewSet, basename='cart')
 router.register(r'vendor/products', VendorProductViewSet, basename='vendor-product')
 router.register(r'vendor/orders', VendorOrderViewSet, basename='vendor-order')
+router.register(r'vendor/dashboard', VendorDashboardViewSet, basename='vendor-dashboard')
+router.register(r'admin/dashboard', AdminDashboardViewSet, basename='admin-dashboard')
 router.register(r'vendors', VendorViewSet, basename='vendor')
 
 urlpatterns = [

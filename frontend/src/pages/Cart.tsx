@@ -92,6 +92,7 @@ const Cart: React.FC = () => {
     try {
       // 1. Create Order in Backend
       const orderData = {
+        juice_name: displayItems.length > 0 ? displayItems[0].name : 'Custom Juice',
         items: displayItems.map(item => ({
           name: item.name,
           price: item.price,

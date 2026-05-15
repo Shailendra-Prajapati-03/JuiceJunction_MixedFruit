@@ -62,6 +62,23 @@ def send_otp_email(email, otp):
         msg.attach_alternative(html_content, "text/html")
         msg.send()
         return True
-    except Exception as e:
-        logger.error(f"SMTP Fallback Error: {str(e)}")
-        return False
+def log_activity(request, user, action):
+    """
+    Log a user activity to the database.
+    """
+    from .models import ActivityLog
+    
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+        
+    ActivityLog.objects.create(
+        user=user,
+        action=action,
+        ip_address=ip,
+        user_agent=request.META.get('HTTP_USER_AGENT', ''),
+        device_info={'path': request.path, 'method': request.method}
+    )
+    logger.info(f"Activity logged: {user.username} - {action}")

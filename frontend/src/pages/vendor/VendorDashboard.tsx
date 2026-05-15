@@ -8,11 +8,17 @@ import api from '../../utils/api';
 import { useStore } from '../../store/useStore';
 
 interface Analytics {
-  total_orders: number;
-  total_revenue: number;
-  active_products: number;
-  pending_orders: number;
+  stats: {
+    total_orders: number;
+    total_revenue: number;
+    total_products: number;
+    rating: number;
+  };
   recent_orders: any[];
+  shop_details: {
+    name: string;
+    is_approved: boolean;
+  };
 }
 
 const VendorDashboard: React.FC = () => {
@@ -26,9 +32,10 @@ const VendorDashboard: React.FC = () => {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await api.get('/api/vendors/analytics/');
-
-      setAnalytics(res.data);
+      const res = await api.get('/api/vendor/dashboard/');
+      if (res.data.success) {
+        setAnalytics(res.data.data);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,10 +51,10 @@ const VendorDashboard: React.FC = () => {
   </div>;
 
   const stats = [
-    { label: 'Total Revenue', value: `₹${analytics?.total_revenue.toLocaleString()}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'Total Orders', value: analytics?.total_orders, icon: ShoppingBag, color: 'text-primary-600', bg: 'bg-primary-50' },
-    { label: 'Active Products', value: analytics?.active_products, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Pending Orders', value: analytics?.pending_orders, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'Total Revenue', value: `₹${analytics?.stats.total_revenue.toLocaleString()}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
+    { label: 'Total Orders', value: analytics?.stats.total_orders, icon: ShoppingBag, color: 'text-primary-600', bg: 'bg-primary-50' },
+    { label: 'Active Products', value: analytics?.stats.total_products, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Shop Rating', value: analytics?.stats.rating, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
   ];
 
   return (
