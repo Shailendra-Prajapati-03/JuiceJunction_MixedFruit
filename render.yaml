@@ -4,7 +4,7 @@ services:
     name: juicejunction-backend
     env: python
     buildCommand: "cd backend && ./build.sh"
-    startCommand: "cd backend && gunicorn juicejunction_backend.wsgi:application"
+    startCommand: "cd backend && ./start.sh"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
