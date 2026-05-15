@@ -3,7 +3,7 @@ services:
     name: juicejunction-backend
     env: python
     buildCommand: "./build.sh"
-    startCommand: gunicorn juicejunction_backend.wsgi:application
+    startCommand: "./start.sh"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
