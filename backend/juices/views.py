@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
 from django.utils import timezone
+from django.conf import settings
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from .models import Fruit, Recipe, Order, Notification, GiftVoucher, Reward, Vendor, Product

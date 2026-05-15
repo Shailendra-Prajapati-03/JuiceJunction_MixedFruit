@@ -45,8 +45,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
-    fruit_name = serializers.ReadOnlyField(source='fruit.name')
-    fruit_color = serializers.ReadOnlyField(source='fruit.color_hex')
+    fruit_name = serializers.ReadOnlyField(source='fruit.name', default='Unknown Fruit')
+    fruit_color = serializers.ReadOnlyField(source='fruit.color_hex', default='#CCCCCC')
 
     class Meta:
         model = RecipeIngredient
