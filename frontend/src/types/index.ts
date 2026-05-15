@@ -22,7 +22,10 @@ export interface Recipe {
   description: string;
   image: string | null;
   base_price: string;
+<<<<<<< HEAD
   category: string;
+=======
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
   ingredients: RecipeIngredient[];
   is_signature: boolean;
 }

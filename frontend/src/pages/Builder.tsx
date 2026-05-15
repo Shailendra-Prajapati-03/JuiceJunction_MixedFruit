@@ -11,7 +11,10 @@ import clsx from 'clsx';
 const Builder: React.FC = () => {
   const [fruits, setFruits] = useState<Fruit[]>([]);
   const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
   const [error, setError] = useState<string | null>(null);
+=======
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const [category, setCategory] = useState('All');
@@ -36,13 +39,20 @@ const Builder: React.FC = () => {
   useEffect(() => {
     const fetchFruits = async () => {
       try {
+<<<<<<< HEAD
         const response = await api.get('/api/fruits/');
+=======
+        const response = await api.get('/fruits/');
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
         if (Array.isArray(response.data)) {
           setFruits(response.data);
         }
       } catch (error) {
         console.error("Error fetching fruits:", error);
+<<<<<<< HEAD
         setError("Failed to load fruits. Please check your connection to the backend.");
+=======
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       } finally {
         setLoading(false);
       }
@@ -256,6 +266,7 @@ const Builder: React.FC = () => {
               <RefreshCw className="w-10 h-10 text-primary-200 animate-spin mx-auto mb-4" />
               <p className="text-sm text-slate-400 font-black uppercase tracking-widest">Fetching Nature's Best...</p>
             </div>
+<<<<<<< HEAD
           ) : error ? (
             <div className="col-span-full py-20 text-center">
               <div className="bg-red-50 text-red-500 p-6 rounded-[2rem] border border-red-100 max-w-md mx-auto">
@@ -269,6 +280,8 @@ const Builder: React.FC = () => {
                 </button>
               </div>
             </div>
+=======
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
           ) : filteredFruits.length === 0 ? (
             <div className="col-span-full py-20 text-center text-slate-400 font-bold">No fruits found in this category</div>
           ) : filteredFruits.map(fruit => {

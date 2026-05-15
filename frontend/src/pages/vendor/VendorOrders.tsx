@@ -30,7 +30,11 @@ const VendorOrders: React.FC = () => {
 
   const fetchOrders = async () => {
     try {
+<<<<<<< HEAD
       const res = await api.get('/api/vendor/orders/');
+=======
+      const res = await api.get('/vendor/orders/');
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       setOrders(res.data);
     } catch (err) {
       console.error(err);
@@ -41,7 +45,11 @@ const VendorOrders: React.FC = () => {
 
   const updateStatus = async (id: number, newStatus: string) => {
     try {
+<<<<<<< HEAD
       await api.post(`/api/vendor/orders/${id}/update_status/`, { status: newStatus });
+=======
+      await api.post(`/vendor/orders/${id}/update_status/`, { status: newStatus });
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       fetchOrders();
     } catch (err) {
       alert('Failed to update status');

@@ -31,7 +31,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-u@&kthficp_=i+4&y)-!cim*aw
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
+<<<<<<< HEAD
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,juicejunction-backend.onrender.com').split(',')
+=======
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 
 
 # Application definition
@@ -88,12 +92,39 @@ WSGI_APPLICATION = 'juicejunction_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+<<<<<<< HEAD
 DATABASES = {
     'default': dj_database_url.config(
         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
         conn_max_age=600
     )
 }
+=======
+# Database configuration
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if DATABASE_URL:
+    # Fix Render's 'postgres://' scheme for newer Django/psycopg versions
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    # Fallback for local development
+    print("⚠️  WARNING: DATABASE_URL not found. Using local SQLite.")
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
+            conn_max_age=600
+        )
+    }
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 
 
 # Password validation
@@ -132,6 +163,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+<<<<<<< HEAD
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Cloudinary Storage
@@ -142,6 +174,23 @@ CLOUDINARY_STORAGE = {
 }
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+=======
+# Safer storage for initial deployment
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+# Cloudinary Storage (Optional check)
+CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
+if CLOUDINARY_CLOUD_NAME:
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
+        'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+        'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+    }
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+else:
+    # Fallback to default storage if Cloudinary is not configured
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 
 MEDIA_URL = '/media/'
 # MEDIA_ROOT is not needed when using Cloudinary for media files
@@ -162,6 +211,7 @@ REST_FRAMEWORK = {
 }
 
 # CORS Settings
+<<<<<<< HEAD
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
@@ -173,6 +223,16 @@ CORS_ALLOWED_ORIGINS = [
     "https://juicejunction-frontend.vercel.app",
     "https://juicejunction-frontend-two.vercel.app",
 ]
+=======
+CORS_ALLOW_ALL_ORIGINS = True # Set to True for development
+CORS_ALLOW_CREDENTIALS = True
+
+# For production, use this instead:
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",
+#     "http://127.0.0.1:5173",
+# ]
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 
 # Simple JWT Settings
 from datetime import timedelta
@@ -189,13 +249,21 @@ SIMPLE_JWT = {
 
 # Production Security
 if not DEBUG:
+<<<<<<< HEAD
+=======
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
+<<<<<<< HEAD
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
     SECURE_HSTS_SECONDS = 31536000  # 1 year
+=======
+    SECURE_HSTS_SECONDS = 31536000
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 

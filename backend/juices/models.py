@@ -90,10 +90,15 @@ class Recipe(models.Model):
     description = models.TextField()
     image = models.ImageField(upload_to='recipes/', null=True, blank=True)
     base_price = models.DecimalField(max_digits=6, decimal_places=2)
+<<<<<<< HEAD
     category = models.CharField(max_length=50, default='Other')
     is_signature = models.BooleanField(default=True)
 
 
+=======
+    is_signature = models.BooleanField(default=True)
+
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
     def __str__(self):
         return self.name
 

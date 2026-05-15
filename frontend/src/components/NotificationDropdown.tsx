@@ -54,14 +54,22 @@ const NotificationDropdown: React.FC = () => {
 
   const handleMarkAllRead = async () => {
     try {
+<<<<<<< HEAD
       await api.post('/api/notifications/mark-all-read/');
+=======
+      await api.post('/notifications/mark-all-read/');
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       markAllNotificationsRead();
     } catch { markAllNotificationsRead(); }
   };
 
   const handleClickNotification = async (n: AppNotification) => {
     if (!n.is_read) {
+<<<<<<< HEAD
       try { await api.post(`/api/notifications/${n.id}/read/`); } catch { /* silent */ }
+=======
+      try { await api.post(`/notifications/${n.id}/read/`); } catch { /* silent */ }
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       markNotificationRead(n.id);
     }
     setOpen(false);

@@ -321,7 +321,11 @@ const Orders: React.FC = () => {
         onConfirm={async () => {
           if (selectedOrderId) {
             try {
+<<<<<<< HEAD
               await api.post(`/api/orders/${selectedOrderId}/cancel/`);
+=======
+              await api.post(`/orders/${selectedOrderId}/cancel/`);
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
               fetchOrders();
             } catch { alert('Failed to cancel order.'); }
           }

@@ -113,11 +113,19 @@ const Cart: React.FC = () => {
       };
 
       if (formData.paymentMethod === 'COD') {
+<<<<<<< HEAD
         await api.post('/api/orders/', orderData);
         finalizeOrder();
       } else {
         // 2. Create Razorpay Order
         const paymentRes = await api.post('/api/orders/create-payment-order/', { amount: total });
+=======
+        await api.post('/orders/', orderData);
+        finalizeOrder();
+      } else {
+        // 2. Create Razorpay Order
+        const paymentRes = await api.post('/orders/create-payment-order/', { amount: total });
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
         const options = {
           key: 'rzp_test_your_key', // Should be in .env
           amount: paymentRes.data.amount,
@@ -128,8 +136,13 @@ const Cart: React.FC = () => {
           handler: async (response: any) => {
             // 3. Verify Payment
             try {
+<<<<<<< HEAD
               await api.post('/api/orders/verify-payment/', response);
               await api.post('/api/orders/', orderData);
+=======
+              await api.post('/orders/verify-payment/', response);
+              await api.post('/orders/', orderData);
+>>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
               finalizeOrder();
             } catch (err) {
               alert('Payment verification failed. Please contact support.');
