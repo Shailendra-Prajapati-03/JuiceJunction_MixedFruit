@@ -1,15 +1,8 @@
 import axios from 'axios';
 
-<<<<<<< HEAD
 const API_URL = import.meta.env.VITE_API_URL || 'https://juicejunction-backend.onrender.com';
 const api = axios.create({
   baseURL: API_URL,
-=======
-const API_URL = import.meta.env.VITE_API_URL;
-
-const api = axios.create({
-  baseURL: `${API_URL}/api`,
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 });
 
 // Add token to requests if available
@@ -26,12 +19,6 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-<<<<<<< HEAD
-      // Token is invalid or expired
-      localStorage.removeItem('token');
-      const isVendorPath = window.location.pathname.startsWith('/vendor');
-      window.location.href = isVendorPath ? '/vendor/login' : '/auth';
-=======
       // Check if we're already on an auth-related page to prevent redirect loops
       const isAuthPage = window.location.pathname === '/auth' || window.location.pathname === '/vendor/login';
       
@@ -59,7 +46,6 @@ api.interceptors.response.use(
         const isVendorPath = window.location.pathname.startsWith('/vendor');
         window.location.href = isVendorPath ? '/vendor/login' : '/auth';
       }
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
     }
     return Promise.reject(error);
   }

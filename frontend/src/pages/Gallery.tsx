@@ -11,10 +11,7 @@ import JuiceGlass from '../components/JuiceGlass';
 const Gallery: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
   const [error, setError] = useState<string | null>(null);
-=======
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
   const [activeCategory, setActiveCategory] = useState('All');
   const { addToCart, setIngredients, setBuilderSize } = useStore();
   const navigate = useNavigate();
@@ -31,20 +28,13 @@ const Gallery: React.FC = () => {
   useEffect(() => {
     const fetchRecipes = async () => {
       try {
-<<<<<<< HEAD
         const response = await api.get('/api/recipes/');
-=======
-        const response = await api.get('/recipes/');
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
         if (Array.isArray(response.data)) {
           setRecipes(response.data);
         }
       } catch (error) {
         console.error("Error fetching recipes:", error);
-<<<<<<< HEAD
         setError("Failed to load signature blends. Please check your connection to the backend.");
-=======
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       } finally {
         setLoading(false);
       }
@@ -87,11 +77,7 @@ const Gallery: React.FC = () => {
 
   const filteredRecipes = activeCategory === 'All'
     ? recipes
-<<<<<<< HEAD
     : recipes.filter(r => r.category === activeCategory);
-=======
-    : recipes; // Category filtering disabled due to backend omitting category in nested serializer
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 
   if (loading) {
     return (
@@ -102,7 +88,6 @@ const Gallery: React.FC = () => {
     );
   }
 
-<<<<<<< HEAD
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
@@ -122,9 +107,6 @@ const Gallery: React.FC = () => {
       </div>
     );
   }
-
-=======
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
   return (
     <div className="container mx-auto px-6 py-10 bg-[#FFF9F6] min-h-screen">
       {/* Category Header */}

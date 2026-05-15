@@ -44,11 +44,7 @@ const Auth: React.FC = () => {
       if (isLogin && username) targetEmail = username;
       else if (!isLogin && email) targetEmail = email;
       
-<<<<<<< HEAD
       const res = await api.post('/api/auth/send-otp/', { email: targetEmail });
-=======
-      const res = await api.post('/auth/send-otp/', { email: targetEmail });
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       setOtpSent(true);
       setTimer(60); 
       setMessage(res.data.message);
@@ -64,11 +60,7 @@ const Auth: React.FC = () => {
     setError('');
     setLoading(true);
     try {
-<<<<<<< HEAD
       const res = await api.post('/api/verify-registration/', {
-=======
-      const res = await api.post('/verify-registration/', {
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
         username,
         password,
         email,
@@ -99,11 +91,7 @@ const Auth: React.FC = () => {
     setLoading(true);
     try {
       const targetEmail = isLogin ? username : email;
-<<<<<<< HEAD
       const res = await api.post('/api/auth/verify-otp/', {
-=======
-      const res = await api.post('/auth/verify-otp/', {
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
         email: targetEmail,
         otp_code: otpCode
       });
@@ -134,11 +122,7 @@ const Auth: React.FC = () => {
     setError('');
     setLoading(true);
     try {
-<<<<<<< HEAD
       const res = await api.post('/api/login/', { username, password });
-=======
-      const res = await api.post('/login/', { username, password });
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       login(res.data.access, res.data.user);
       navigate('/');
     } catch (err: any) {

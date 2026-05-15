@@ -26,11 +26,8 @@ const VendorDashboard: React.FC = () => {
 
   const fetchAnalytics = async () => {
     try {
-<<<<<<< HEAD
       const res = await api.get('/api/vendors/analytics/');
-=======
-      const res = await api.get('/vendors/analytics/');
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
+
       setAnalytics(res.data);
     } catch (err) {
       console.error(err);

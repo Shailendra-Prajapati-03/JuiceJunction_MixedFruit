@@ -172,11 +172,7 @@ export const useStore = create<AppState>()(
       setNotifications: (notifications) => set({ notifications }),
       markNotificationRead: async (id) => {
         try {
-<<<<<<< HEAD
           await api.post(`/api/notifications/${id}/read/`);
-=======
-          await api.post(`/notifications/${id}/read/`);
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
           set((state) => ({
             notifications: state.notifications.map(n =>
               n.id === id ? { ...n, is_read: true } : n
@@ -188,11 +184,7 @@ export const useStore = create<AppState>()(
       },
       markAllNotificationsRead: async () => {
         try {
-<<<<<<< HEAD
           await api.post('/api/notifications/mark-all-read/');
-=======
-          await api.post('/notifications/mark-all-read/');
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
           set((state) => ({
             notifications: state.notifications.map(n => ({ ...n, is_read: true }))
           }));
@@ -248,11 +240,7 @@ export const useStore = create<AppState>()(
       fetchNotifications: async () => {
         if (!get().isAuthenticated) return;
         try {
-<<<<<<< HEAD
           const res = await api.get('/api/notifications/');
-=======
-          const res = await api.get('/notifications/');
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
           set({ notifications: res.data });
         } catch (err) {
           console.error('Failed to fetch notifications', err);
@@ -261,11 +249,7 @@ export const useStore = create<AppState>()(
       fetchRewards: async () => {
         if (!get().isAuthenticated) return;
         try {
-<<<<<<< HEAD
           const res = await api.get('/api/rewards-summary/');
-=======
-          const res = await api.get('/rewards-summary/');
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
           set({ rewardPoints: res.data.points });
         } catch (err) {
           console.error('Failed to fetch rewards', err);
@@ -286,11 +270,7 @@ export const useStore = create<AppState>()(
             },
             quantity: item.quantity
           }));
-<<<<<<< HEAD
           await api.post('/api/cart/sync/', { items });
-=======
-          await api.post('/cart/sync/', { items });
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
         } catch (err) {
           console.error('Failed to sync cart', err);
         }
@@ -298,11 +278,7 @@ export const useStore = create<AppState>()(
       loadCartFromBackend: async () => {
         if (!get().isAuthenticated) return;
         try {
-<<<<<<< HEAD
           const res = await api.get('/api/cart/');
-=======
-          const res = await api.get('/cart/');
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
           const backendItems: CartItem[] = res.data.map((item: any) => ({
             id: `back-${item.id}`,
             name: item.custom_juice_data.name,

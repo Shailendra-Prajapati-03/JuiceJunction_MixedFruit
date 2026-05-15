@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-<<<<<<< HEAD
 import api from '../../utils/api';
-=======
-import axios from 'axios';
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 import { Store, UserPlus, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -47,19 +43,11 @@ const VendorRegister: React.FC = () => {
     try {
       const identifier = verifyWith === 'email' ? formData.email : formData.phone_number;
       if (!otpSent) {
-<<<<<<< HEAD
         await api.post('/api/auth/send-otp/', { email: identifier });
         setOtpSent(true);
         setMessage(`Verification OTP sent to your ${verifyWith}.`);
       } else {
         await api.post('/api/verify-registration/', {
-=======
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/send-otp/`, { email: identifier });
-        setOtpSent(true);
-        setMessage(`Verification OTP sent to your ${verifyWith}.`);
-      } else {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/verify-registration/`, {
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
           ...formData,
           is_vendor: true,
           otp_code: otpCode

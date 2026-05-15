@@ -35,11 +35,7 @@ const VoucherCard: React.FC<{ voucher: GiftVoucher }> = ({ voucher }) => {
     setApplying(true);
     setResult(null);
     try {
-<<<<<<< HEAD
       const res = await api.post('/api/apply-voucher/', { code: voucher.code, order_total: 500 });
-=======
-      const res = await api.post('/apply-voucher/', { code: voucher.code, order_total: 500 });
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       setResult({ success: true, message: res.data.message });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Could not apply voucher.';
@@ -211,13 +207,8 @@ const Gifts: React.FC = () => {
     const fetchAll = async () => {
       try {
         const [vRes, rRes] = await Promise.all([
-<<<<<<< HEAD
           api.get<GiftVoucher[]>('/api/gifts/'),
           api.get<Reward>('/api/rewards-summary/'),
-=======
-          api.get<GiftVoucher[]>('/vouchers/'),
-          api.get<Reward>('/rewards-summary/'),
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
         ]);
         if (Array.isArray(vRes.data)) setVouchers(vRes.data);
         if (rRes.data) setReward(rRes.data);

@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-<<<<<<< HEAD
 import api from '../../utils/api';
-=======
-import axios from 'axios';
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
 import { useStore } from '../../store/useStore';
 import { Store, ArrowRight, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -19,11 +15,7 @@ const VendorLogin: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-<<<<<<< HEAD
       const response = await api.post('/api/vendor/login/', {
-=======
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/vendor/login/`, {
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
         username,
         password,
       });

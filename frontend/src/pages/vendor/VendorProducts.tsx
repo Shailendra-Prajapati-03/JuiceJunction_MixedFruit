@@ -33,11 +33,7 @@ const VendorProducts: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-<<<<<<< HEAD
       const res = await api.get('/api/vendor/products/');
-=======
-      const res = await api.get('/vendor/products/');
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       setProducts(res.data);
     } catch (err) {
       console.error(err);
@@ -49,11 +45,7 @@ const VendorProducts: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
     try {
-<<<<<<< HEAD
       await api.delete(`/api/vendor/products/${id}/`);
-=======
-      await api.delete(`/vendor/products/${id}/`);
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
       setProducts(products.filter(p => p.id !== id));
     } catch (err) {
       alert('Failed to delete product');

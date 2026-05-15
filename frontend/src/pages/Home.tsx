@@ -77,11 +77,8 @@ const Home: React.FC = () => {
   useEffect(() => {
     const fetchRecipes = async () => {
       try {
-<<<<<<< HEAD
         const response = await api.get('/api/recipes/');
-=======
-        const response = await api.get('/recipes/');
->>>>>>> 18a190e7792a47b11a997af80c50d0ff5ace506d
+
         if (Array.isArray(response.data)) {
           setFeaturedRecipes(response.data.slice(0, 6));
         }
