@@ -24,7 +24,7 @@ const HomeTracking: React.FC = () => {
         return;
       }
       try {
-        const res = await api.get<Order[]>('/orders/');
+        const res = await api.get<Order[]>('/api/orders/');
         if (Array.isArray(res.data) && res.data.length > 0) {
           // Find the most recent active order (not cancelled)
           const active = res.data.filter(o => o.status !== 'Cancelled').sort((a, b) => b.id - a.id)[0];

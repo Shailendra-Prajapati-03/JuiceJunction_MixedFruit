@@ -32,7 +32,7 @@ const NotificationDropdown: React.FC = () => {
   const fetchNotifications = async () => {
     if (!isAuthenticated) return;
     try {
-      const res = await api.get<AppNotification[]>('/notifications/');
+      const res = await api.get<AppNotification[]>('/api/notifications/');
       if (Array.isArray(res.data)) setNotifications(res.data.slice(0, 20));
     } catch { /* silent */ }
   };

@@ -42,7 +42,7 @@ const Orders: React.FC = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await api.get<Order[]>('/orders/');
+      const res = await api.get<Order[]>('/api/orders/');
       if (Array.isArray(res.data)) {
         setOrders(res.data.sort((a, b) => b.id - a.id));
         const initialSteps: Record<number, number> = {};
