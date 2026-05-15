@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles, Zap, ShieldCheck, ShoppingCart } from 'lucide-react';
+import { ArrowRight, Sparkles, Zap, ShieldCheck, ShoppingCart, Gift, Tag, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
-import { Recipe, Order } from '../types';
+import { Recipe, Order, GiftVoucher } from '../types';
 
 const VideoCard: React.FC<{ video: any, index: number }> = ({ video, index }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -73,20 +73,36 @@ const VideoCard: React.FC<{ video: any, index: number }> = ({ video, index }) =>
 
 const Home: React.FC = () => {
   const [featuredRecipes, setFeaturedRecipes] = useState<Recipe[]>([]);
+  const [vouchers, setVouchers] = useState<GiftVoucher[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRecipes = async () => {
+    const fetchAll = async () => {
       try {
-        const response = await api.get('/api/recipes/');
+        const [rRes, vRes] = await Promise.allSettled([
+          api.get('/api/recipes/'),
+          api.get('/api/gifts/')
+        ]);
 
-        if (Array.isArray(response.data)) {
-          setFeaturedRecipes(response.data.slice(0, 6));
+        if (rRes.status === 'fulfilled') {
+          const data = rRes.value.data;
+          if (Array.isArray(data)) {
+            setFeaturedRecipes(data.slice(0, 6));
+          } else if (data && Array.isArray(data.results)) {
+            setFeaturedRecipes(data.results.slice(0, 6));
+          }
+        }
+
+        if (vRes.status === 'fulfilled' && Array.isArray(vRes.value.data)) {
+          setVouchers(vRes.value.data.slice(0, 3));
         }
       } catch (err) {
         console.error(err);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchRecipes();
+    fetchAll();
   }, []);
 
   return (
@@ -262,7 +278,64 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. CTA Section */}
+      {/* 4. Special Offers / Vouchers Section */}
+      {vouchers.length > 0 && (
+        <section className="container mx-auto px-4 md:px-6">
+          <div className="bg-slate-900 rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-full lg:w-1/2 h-full opacity-20 pointer-events-none">
+              <div className="absolute inset-0 bg-gradient-to-l from-primary-500/20 to-transparent" />
+              <img src="/gift_card.png" className="w-full h-full object-cover" />
+            </div>
+            
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
+              <div className="text-center lg:text-left">
+                <span className="text-primary-500 font-black text-[10px] md:text-xs uppercase tracking-[0.2em]">Limited Time Perks</span>
+                <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter mt-3 md:mt-4 mb-4 md:mb-6 leading-tight">
+                  Unlock Exclusive <br />
+                  <span className="text-primary-400">Gift Vouchers</span>
+                </h2>
+                <p className="text-slate-400 font-medium text-sm md:text-lg mb-6 md:mb-8 max-w-md mx-auto lg:mx-0">
+                  Save big on your favorite blends with our active promotional vouchers. Redeemable on all orders.
+                </p>
+                <Link 
+                  to="/gifts" 
+                  className="inline-flex items-center gap-3 px-6 md:px-8 py-3 md:py-4 bg-primary-500 text-white rounded-2xl font-black text-[10px] md:text-sm uppercase tracking-widest hover:bg-primary-600 transition-all shadow-xl shadow-primary-500/20"
+                >
+                  View All Gifts <ArrowRight size={18} />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {vouchers.map((v, i) => (
+                  <motion.div
+                    key={v.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="bg-white/5 backdrop-blur-md border border-white/10 p-5 md:p-6 rounded-3xl group hover:bg-white/10 transition-colors"
+                  >
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-primary-500/20 rounded-xl flex items-center justify-center mb-3 md:mb-4">
+                      <Tag className="text-primary-400 w-4 h-4 md:w-5 md:h-5" />
+                    </div>
+                    <p className="text-[8px] md:text-[10px] font-black text-primary-400 uppercase tracking-widest mb-1">{v.code}</p>
+                    <h4 className="text-base md:text-lg font-black text-white leading-tight">{v.description}</h4>
+                    <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-xl md:text-2xl font-black text-white">
+                        {v.discount_type === 'percentage' ? `${v.discount_value}%` : `₹${v.discount_value}`}
+                      </span>
+                      <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-primary-500 transition-colors">
+                        <ChevronRight size={16} className="text-white" />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 5. CTA Section */}
       <section className="container mx-auto px-4 md:px-6">
         <div className="bg-primary-500 rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 text-center text-white relative overflow-hidden shadow-2xl shadow-primary-500/40">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -mr-48 -mt-48" />

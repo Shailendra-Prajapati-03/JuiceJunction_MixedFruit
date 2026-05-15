@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift, Tag, Star, Copy, Check, Zap, Shield, Trophy } from 'lucide-react';
+import { Gift, Tag, Star, Copy, Check, Zap, Shield, Trophy, LogIn } from 'lucide-react';
 import api from '../utils/api';
 import { GiftVoucher, Reward } from '../types';
+import useStore from '../store/useStore';
+import { useNavigate } from 'react-router-dom';
 
 /* ── Reward level config ─────────────────────────────────────────────────── */
 const LEVEL_CONFIG = {
@@ -24,6 +26,8 @@ const VoucherCard: React.FC<{ voucher: GiftVoucher }> = ({ voucher }) => {
   const [copied, setCopied] = useState(false);
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const { isAuthenticated } = useStore();
+  const navigate = useNavigate();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(voucher.code);
@@ -32,6 +36,10 @@ const VoucherCard: React.FC<{ voucher: GiftVoucher }> = ({ voucher }) => {
   };
 
   const handleApply = async () => {
+    if (!isAuthenticated) {
+      navigate('/auth');
+      return;
+    }
     setApplying(true);
     setResult(null);
     try {
@@ -98,7 +106,7 @@ const VoucherCard: React.FC<{ voucher: GiftVoucher }> = ({ voucher }) => {
           disabled={applying || daysLeft <= 0}
           className="px-8 py-3 bg-slate-900 text-white text-[10px] font-black rounded-xl hover:bg-primary-500 transition-all active:scale-95 disabled:opacity-30 shadow-lg shadow-slate-900/10"
         >
-          {applying ? '...' : 'REDEEM VOUCHER'}
+          {applying ? '...' : (isAuthenticated ? 'REDEEM VOUCHER' : 'LOGIN TO REDEEM')}
         </button>
       </div>
 
@@ -202,22 +210,30 @@ const Gifts: React.FC = () => {
   const [vouchers, setVouchers] = useState<GiftVoucher[]>([]);
   const [reward, setReward] = useState<Reward | null>(null);
   const [loading, setLoading] = useState(true);
+  const { isAuthenticated } = useStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [vRes, rRes] = await Promise.all([
+        const [vRes, rRes] = await Promise.allSettled([
           api.get<GiftVoucher[]>('/api/gifts/'),
-          api.get<Reward>('/api/rewards-summary/'),
+          isAuthenticated ? api.get<Reward>('/api/rewards-summary/') : Promise.reject('Not authenticated'),
         ]);
-        if (Array.isArray(vRes.data)) setVouchers(vRes.data);
-        if (rRes.data) setReward(rRes.data);
+        
+        if (vRes.status === 'fulfilled' && Array.isArray(vRes.value.data)) {
+          setVouchers(vRes.value.data);
+        }
+        
+        if (rRes.status === 'fulfilled' && rRes.value.data) {
+          setReward(rRes.value.data);
+        }
       } catch { /* silent */ } finally {
         setLoading(false);
       }
     };
     fetchAll();
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <div className="container mx-auto px-6 py-10">
@@ -265,12 +281,33 @@ const Gifts: React.FC = () => {
                 <p className="text-xs text-slate-400 font-medium">Earn points on every order</p>
               </div>
             </div>
-            {reward ? (
-              <RewardCard reward={reward} />
+            {isAuthenticated ? (
+              reward ? (
+                <RewardCard reward={reward} />
+              ) : (
+                <div className="bg-slate-50 rounded-3xl p-10 text-center text-slate-300">
+                  <Star className="w-12 h-12 mx-auto mb-3" />
+                  <p className="font-black">No reward data</p>
+                </div>
+              )
             ) : (
-              <div className="bg-slate-50 rounded-3xl p-10 text-center text-slate-300">
-                <Star className="w-12 h-12 mx-auto mb-3" />
-                <p className="font-black">No reward data</p>
+              <div className="bg-slate-900 rounded-[3rem] p-10 text-center relative overflow-hidden border border-white/10">
+                <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                  <img src="/gift_card.png" className="w-full h-full object-cover" />
+                </div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-primary-500/20 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
+                    <LogIn className="w-8 h-8 text-primary-500" />
+                  </div>
+                  <h3 className="text-xl font-black text-white mb-2 uppercase tracking-tighter">Login to track points</h3>
+                  <p className="text-slate-400 text-xs font-medium mb-8">Earn rewards on every purchase and unlock exclusive status levels.</p>
+                  <button
+                    onClick={() => navigate('/auth')}
+                    className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-primary-500 hover:text-white transition-all shadow-xl"
+                  >
+                    Sign In Now
+                  </button>
+                </div>
               </div>
             )}
           </div>
