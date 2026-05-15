@@ -1,0 +1,9 @@
+{
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ],
+  "env": {
+    "VITE_API_URL": "https://juicejunction-backend.onrender.com"
+  }
+}
