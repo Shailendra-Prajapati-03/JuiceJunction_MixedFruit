@@ -1,74 +1,66 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
-import ScrollToTop from './components/ScrollToTop';
-import Home from './pages/Home';
-import Builder from './pages/Builder';
-import Gallery from './pages/Gallery';
-import Cart from './pages/Cart';
-import Orders from './pages/Orders';
-import Gifts from './pages/Gifts';
-import Auth from './pages/Auth';
-import VendorLogin from './pages/vendor/VendorLogin';
-import VendorRegister from './pages/vendor/VendorRegister';
-import VendorLayout from './pages/vendor/VendorLayout';
-import VendorDashboard from './pages/vendor/VendorDashboard';
-import VendorProducts from './pages/vendor/VendorProducts';
-import VendorOrders from './pages/vendor/VendorOrders';
-import About from './pages/About';
-import Support from './pages/Support';
-import RecipeDetail from './pages/RecipeDetail';
-import Legal from './pages/Legal';
-import Subscriptions from './pages/Subscriptions';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import VendorDashboard from './pages/vendor/VendorDashboard';
-import PrivacyPolicy from './pages/legal/PrivacyPolicy';
-import TermsAndConditions from './pages/legal/TermsAndConditions';
-import RefundPolicy from './pages/legal/RefundPolicy';
-import CancellationPolicy from './pages/legal/CancellationPolicy';
-import VendorAgreement from './pages/legal/VendorAgreement';
-import CookiePolicy from './pages/legal/CookiePolicy';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Loading from './components/Loading';
+import { useStore } from './store/useStore';
 
-const queryClient = new QueryClient();
+// Lazy load pages
+const Home = lazy(() => import('./pages/Home'));
+const Builder = lazy(() => import('./pages/Builder'));
+const Gallery = lazy(() => import('./pages/Gallery'));
+const RecipeDetail = lazy(() => import('./pages/RecipeDetail'));
+const Cart = lazy(() => import('./pages/Cart'));
+const Auth = lazy(() => import('./pages/Auth'));
+const Orders = lazy(() => import('./pages/Orders'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Gifts = lazy(() => import('./pages/Gifts'));
+const AdminMonitor = lazy(() => import('./pages/AdminMonitor'));
+const About = lazy(() => import('./pages/About'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
 
-function App() {
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useStore();
+  if (!isAuthenticated) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+};
+
+// Admin Route Component
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, user } = useStore();
+  if (!isAuthenticated || !user?.is_staff) return <Navigate to="/" replace />;
+  return <>{children}</>;
+};
+
+const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-        <ScrollToTop />
+    <BrowserRouter>
+      <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="builder" element={<Builder />} />
             <Route path="gallery" element={<Gallery />} />
+            <Route path="recipe/:id" element={<RecipeDetail />} />
             <Route path="cart" element={<Cart />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="gifts" element={<Gifts />} />
             <Route path="auth" element={<Auth />} />
             <Route path="about" element={<About />} />
-            <Route path="support" element={<Support />} />
-            <Route path="legal" element={<Legal />} />
-            <Route path="privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="terms" element={<TermsAndConditions />} />
-            <Route path="refund-policy" element={<RefundPolicy />} />
-            <Route path="cancellation-policy" element={<CancellationPolicy />} />
-            <Route path="vendor-agreement" element={<VendorAgreement />} />
-            <Route path="cookie-policy" element={<CookiePolicy />} />
-            <Route path="subscriptions" element={<Subscriptions />} />
-            <Route path="recipe/:id" element={<RecipeDetail />} />
-          </Route>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/vendor/login" element={<VendorLogin />} />
-          <Route path="/vendor/register" element={<VendorRegister />} />
-          <Route path="/vendor" element={<VendorLayout />}>
-            <Route path="dashboard" element={<VendorDashboard />} />
-            <Route path="products" element={<VendorProducts />} />
-            <Route path="orders" element={<VendorOrders />} />
+            <Route path="privacy" element={<Privacy />} />
+            <Route path="terms" element={<Terms />} />
+            <Route path="gifts" element={<Gifts />} />
+            
+            {/* Protected Routes */}
+            <Route path="orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+            <Route path="dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            
+            {/* Admin Routes */}
+            <Route path="admin/monitor" element={<AdminRoute><AdminMonitor /></AdminRoute>} />
           </Route>
         </Routes>
-      </Router>
-    </QueryClientProvider>
+      </Suspense>
+    </BrowserRouter>
   );
-}
+};
 
 export default App;
