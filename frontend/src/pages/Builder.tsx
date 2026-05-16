@@ -3,11 +3,11 @@ import { Search, Plus, Minus, ShoppingCart, RefreshCw, Sparkles, Check, ArrowRig
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore, MixMode } from '../store/useStore';
 import JuiceGlass from '../components/JuiceGlass';
+import QuickCheckoutModal from '../components/QuickCheckoutModal';
 import api from '../utils/api';
 import { Fruit } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import CheckoutModal from '../components/CheckoutModal';
 
 const Builder: React.FC = () => {
   const [fruits, setFruits] = useState<Fruit[]>([]);
@@ -18,7 +18,6 @@ const Builder: React.FC = () => {
   const [category, setCategory] = useState('All');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [checkoutData, setCheckoutData] = useState<any>(null);
 
   const { 
     ingredients, 
@@ -34,7 +33,8 @@ const Builder: React.FC = () => {
     addToCart,
     isAuthenticated,
     clearCart,
-    replaceCart
+    replaceCart,
+    user
   } = useStore();
 
   useEffect(() => {
@@ -131,23 +131,8 @@ const Builder: React.FC = () => {
     const juiceId = Math.random().toString(36).substr(2, 9);
     
     if (shouldNavigate) {
-      const data = {
-        name: `${mixMode} Blend (${ingredients.length} fruits)`,
-        price: calculation.price,
-        calories: calculation.calories,
-        size,
-        addIns,
-        ingredients: [...ingredients]
-      };
-      
-      if (isAuthenticated) {
-        setCheckoutData(data);
-        setIsCheckoutOpen(true);
-      } else {
-        // Save to cart first so it's there after login
-        replaceCart(data);
-        navigate(`/auth?redirect=${encodeURIComponent('/cart?step=checkout')}`);
-      }
+      // Open Quick Checkout Modal directly
+      setIsCheckoutOpen(true);
     } else {
       addToCart({
         id: juiceId,
@@ -451,15 +436,20 @@ const Builder: React.FC = () => {
         </div>
 
       </div>
-
-      {checkoutData && (
-        <CheckoutModal 
-          isOpen={isCheckoutOpen}
-          onClose={() => setIsCheckoutOpen(false)}
-          juiceData={checkoutData}
-        />
-      )}
     </div>
+
+    <QuickCheckoutModal
+      isOpen={isCheckoutOpen}
+      onClose={() => setIsCheckoutOpen(false)}
+      juiceName={`${mixMode} Blend (${ingredients.length} fruits)`}
+      price={calculation.price}
+      calories={calculation.calories}
+      size={size}
+      addIns={addIns}
+      ingredients={ingredients}
+      userName={user?.username || ''}
+      userPhone={user?.phone || ''}
+    />
   );
 };
 
