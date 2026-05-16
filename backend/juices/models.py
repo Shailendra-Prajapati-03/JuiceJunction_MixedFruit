@@ -272,11 +272,4 @@ class LoginHistory(models.Model):
     def __str__(self):
         return f"{self.user.username} logged in from {self.ip_address} at {self.timestamp}"
 
-class CustomerProfile(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='customer_profile')
-    default_address = models.TextField(null=True, blank=True)
-    loyalty_points = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"Profile of {self.user.username}"

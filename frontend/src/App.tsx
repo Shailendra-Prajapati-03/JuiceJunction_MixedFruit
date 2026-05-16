@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Loading from './components/Loading';
 import { useStore } from './store/useStore';
+import VendorLayout from './pages/vendor/VendorLayout';
 
 // Lazy load pages
 const Home = lazy(() => import('./pages/Home'));
@@ -12,12 +13,18 @@ const RecipeDetail = lazy(() => import('./pages/RecipeDetail'));
 const Cart = lazy(() => import('./pages/Cart'));
 const Auth = lazy(() => import('./pages/Auth'));
 const Orders = lazy(() => import('./pages/Orders'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Gifts = lazy(() => import('./pages/Gifts'));
-const AdminMonitor = lazy(() => import('./pages/AdminMonitor'));
+const AdminMonitor = lazy(() => import('./pages/admin/AdminDashboard'));
 const About = lazy(() => import('./pages/About'));
-const Privacy = lazy(() => import('./pages/Privacy'));
-const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(() => import('./pages/legal/PrivacyPolicy'));
+const Terms = lazy(() => import('./pages/legal/TermsAndConditions'));
+
+// Vendor Pages
+const VendorLogin = lazy(() => import('./pages/vendor/VendorLogin'));
+const VendorRegister = lazy(() => import('./pages/vendor/VendorRegister'));
+const VendorDashboard = lazy(() => import('./pages/vendor/VendorDashboard'));
+const VendorOrders = lazy(() => import('./pages/vendor/VendorOrders'));
+const VendorProducts = lazy(() => import('./pages/vendor/VendorProducts'));
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -30,6 +37,13 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useStore();
   if (!isAuthenticated || !user?.is_staff) return <Navigate to="/" replace />;
+  return <>{children}</>;
+};
+
+// Vendor Route Component
+const VendorRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, user } = useStore();
+  if (!isAuthenticated || !user?.is_vendor) return <Navigate to="/vendor/login" replace />;
   return <>{children}</>;
 };
 
@@ -52,10 +66,20 @@ const App: React.FC = () => {
             
             {/* Protected Routes */}
             <Route path="orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-            <Route path="dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="dashboard" element={<Navigate to="/orders" replace />} />
             
             {/* Admin Routes */}
             <Route path="admin/monitor" element={<AdminRoute><AdminMonitor /></AdminRoute>} />
+          </Route>
+
+          {/* Vendor Routes (Standalone without main layout) */}
+          <Route path="/vendor/login" element={<VendorLogin />} />
+          <Route path="/vendor/register" element={<VendorRegister />} />
+          <Route path="/vendor" element={<VendorRoute><VendorLayout /></VendorRoute>}>
+            <Route path="dashboard" element={<VendorDashboard />} />
+            <Route path="orders" element={<VendorOrders />} />
+            <Route path="products" element={<VendorProducts />} />
+            <Route path="settings" element={<div className="p-8">Vendor Settings (Coming Soon)</div>} />
           </Route>
         </Routes>
       </Suspense>

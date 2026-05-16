@@ -31,6 +31,7 @@ interface AppState {
   removeFromCart: (id: string) => void;
   updateCartQuantity: (id: string, delta: number) => void;
   clearCart: () => void;
+  replaceCart: (juice: Omit<CartItem, 'quantity'>) => void;
 
   // Builder
   ingredients: Ingredient[];
@@ -65,7 +66,7 @@ interface AppState {
   token: string | null;
   user: { username: string; email?: string; phone?: string; is_vendor?: boolean } | null;
   isAuthenticated: boolean;
-  login: (token: string, user: { username: string; email?: string; phone?: string; is_vendor?: boolean }) => void;
+  login: (token: string, user: { username: string; email?: string; phone?: string; is_vendor?: boolean }) => Promise<void>;
   logout: () => void;
 
   // UI State
@@ -117,6 +118,10 @@ export const useStore = create<AppState>()(
       },
       clearCart: () => {
         set({ cart: [] });
+        get().syncCartWithBackend();
+      },
+      replaceCart: (juice) => {
+        set({ cart: [{ ...juice, quantity: 1 }] });
         get().syncCartWithBackend();
       },
 
@@ -207,11 +212,14 @@ export const useStore = create<AppState>()(
       token: localStorage.getItem('token'),
       user: null,
       isAuthenticated: !!localStorage.getItem('token'),
-      login: (token, user) => {
+      login: async (token, user) => {
         localStorage.setItem('token', token);
         set({ token, user, isAuthenticated: true });
-        // Trigger data sync
-        get().loadCartFromBackend();
+        
+        // Sync local cart to backend first, then load full cart
+        await get().syncCartWithBackend();
+        await get().loadCartFromBackend();
+        
         get().fetchNotifications();
         get().fetchRewards();
       },

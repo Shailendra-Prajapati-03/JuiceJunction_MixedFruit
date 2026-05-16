@@ -68,7 +68,7 @@ const Auth: React.FC = () => {
         otp_code: otpCode,
         verified_with: verifyWith
       });
-      login(res.data.access, res.data.user);
+      await login(res.data.access, res.data.user);
       const searchParams = new URLSearchParams(window.location.search);
       const redirectPath = searchParams.get('redirect') || '/';
       const buyNowData = searchParams.get('buyNow');
@@ -95,8 +95,11 @@ const Auth: React.FC = () => {
         email: targetEmail,
         otp_code: otpCode
       });
-      login(res.data.access, res.data.user);
-      navigate('/');
+      await login(res.data.access, res.data.user);
+      
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectPath = searchParams.get('redirect') || '/';
+      navigate(redirectPath);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Verification failed');
     } finally {
@@ -123,8 +126,11 @@ const Auth: React.FC = () => {
     setLoading(true);
     try {
       const res = await api.post('/api/login/', { username, password });
-      login(res.data.access, res.data.user);
-      navigate('/');
+      await login(res.data.access, res.data.user);
+      
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectPath = searchParams.get('redirect') || '/';
+      navigate(redirectPath);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed');
     } finally {

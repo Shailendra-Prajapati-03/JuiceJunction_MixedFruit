@@ -30,7 +30,8 @@ const Builder: React.FC = () => {
     toggleAddIn,
     addToCart,
     isAuthenticated,
-    clearCart
+    clearCart,
+    replaceCart
   } = useStore();
 
   useEffect(() => {
@@ -127,8 +128,7 @@ const Builder: React.FC = () => {
     const juiceId = Math.random().toString(36).substr(2, 9);
     
     if (shouldNavigate) {
-      clearCart();
-      addToCart({
+      replaceCart({
         id: juiceId,
         name: `${mixMode} Blend (${ingredients.length} fruits)`,
         price: calculation.price,

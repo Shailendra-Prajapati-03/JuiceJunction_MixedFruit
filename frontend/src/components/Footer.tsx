@@ -53,22 +53,10 @@ const columns = [
     ],
   },
   {
-    title: 'Customer Support',
-    links: [
-      { label: 'FAQs', to: '/support#faqs' },
-      { label: 'Contact Us', to: '/support#contact' },
-      { label: 'Delivery Info', to: '/support#delivery' },
-      { label: 'Order Tracking', to: '/orders' },
-    ],
-  },
-  {
     title: 'Legal',
     links: [
-      { label: 'Privacy Policy', to: '/privacy-policy' },
+      { label: 'Privacy Policy', to: '/privacy' },
       { label: 'Terms & Conditions', to: '/terms' },
-      { label: 'Refund Policy', to: '/refund-policy' },
-      { label: 'Cancellation Policy', to: '/cancellation-policy' },
-      { label: 'Cookie Policy', to: '/cookie-policy' },
     ],
   },
   {
@@ -77,7 +65,7 @@ const columns = [
       { label: 'Build Your Juice', to: '/builder' },
       { label: 'Popular Combos', to: '/gallery' },
       { label: 'Offers', to: '/gifts' },
-      { label: 'Subscription Plans', to: '/subscriptions' },
+      { label: 'Order Tracking', to: '/orders' },
     ],
   },
   {
@@ -85,7 +73,6 @@ const columns = [
     links: [
       { label: 'Vendor Login', to: '/vendor/login' },
       { label: 'Vendor Registration', to: '/vendor/register' },
-      { label: 'Vendor Agreement', to: '/vendor-agreement' },
     ],
   },
 ];
@@ -212,13 +199,9 @@ const Footer: React.FC = () => {
             <div className="flex items-center gap-4">
               <Link to="#" className="hover:text-slate-300 transition-colors">Web Accessibility</Link>
               <span className="w-1 h-1 rounded-full bg-slate-600" />
-              <Link to="/privacy-policy" className="hover:text-slate-300 transition-colors">Privacy</Link>
+              <Link to="/privacy" className="hover:text-slate-300 transition-colors">Privacy</Link>
               <span className="w-1 h-1 rounded-full bg-slate-600" />
               <Link to="/terms" className="hover:text-slate-300 transition-colors">Terms</Link>
-              <span className="w-1 h-1 rounded-full bg-slate-600" />
-              <Link to="/refund-policy" className="hover:text-slate-300 transition-colors">Refund</Link>
-              <span className="w-1 h-1 rounded-full bg-slate-600" />
-              <Link to="/support#contact" className="hover:text-slate-300 transition-colors">Contact</Link>
             </div>
             <p>© {year} JuiceJunction. All rights reserved.</p>
           </div>
